@@ -26,7 +26,8 @@
     },
     "production": {
       "env": {
-        "RCT_NEW_ARCH_ENABLED": "1"
+        "RCT_NEW_ARCH_ENABLED": "1",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://979f6a492571297f2efa1e8c5c195177@o4510954476470272.ingest.de.sentry.io/4510954479091792"
       },
       "ios": {
         "autoIncrement": true
