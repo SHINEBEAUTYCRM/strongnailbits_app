@@ -8,3 +8,5 @@ android/
 *.hprof
 *.tsbuildinfo
 diagnose-eas.js
+
+.env.local
