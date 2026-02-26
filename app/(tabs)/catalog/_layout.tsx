@@ -1,13 +1,5 @@
 import { Stack } from 'expo-router';
-import { colors } from '@/theme';
 
 export default function CatalogLayout() {
-  return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: colors.pearl },
-      }}
-    />
-  );
+  return <Stack screenOptions={{ headerShown: false }} />;
 }
