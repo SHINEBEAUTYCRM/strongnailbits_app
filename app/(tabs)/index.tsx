@@ -116,7 +116,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/notifications')}>
             <Bell size={24} color={colors.dark} />
-            {unreadCount > 0 && (
+            {false && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
                   {unreadCount > 99 ? '99+' : unreadCount}
