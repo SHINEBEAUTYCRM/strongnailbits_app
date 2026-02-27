@@ -116,19 +116,20 @@ export default function ProductScreen() {
 
   if (isLoading) return <Loading fullScreen />;
 
-  if (error || !product) {
+  if (!product) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.header}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.pearl }} edges={['top']}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.white }}>
           <TouchableOpacity onPress={() => router.back()}>
             <ArrowLeft size={24} color={colors.dark} />
           </TouchableOpacity>
         </View>
-        <ErrorState
-          fullScreen
-          title={error ?? 'Товар не знайдено'}
-          onRetry={slug ? loadProduct : undefined}
-        />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Text style={{ fontSize: 11, color: 'red', fontFamily: 'JetBrainsMono-Regular', textAlign: 'center', marginBottom: 16 }}>
+            slug: "{slug}" | type: {typeof slug}
+          </Text>
+          <ErrorState fullScreen onRetry={() => { setError(null); setIsLoading(true); loadProduct(); }} />
+        </View>
       </SafeAreaView>
     );
   }
