@@ -12,6 +12,8 @@ export interface Order {
   payment_method: string;
   notes: string | null;
   ttn: string | null;
+  source: 'web' | 'mobile' | 'api' | '1c';
+  source_device: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,13 +45,17 @@ export interface OrderShipping {
 }
 
 export type ShippingMethod =
-  | 'nova_poshta'
-  | 'nova_poshta_courier'
+  | 'np_warehouse'
+  | 'np_address'
   | 'ukrposhta'
   | 'pickup'
+  | 'np_intl'
+  | 'ukrposhta_intl'
+  | 'nova_poshta'
+  | 'nova_poshta_courier'
   | 'international';
 
-export type PaymentMethod = 'cod' | 'invoice' | 'online';
+export type PaymentMethod = 'cod' | 'liqpay' | 'mono' | 'invoice' | 'online';
 
 export const ORDER_STATUS_MAP: Record<
   OrderStatus,

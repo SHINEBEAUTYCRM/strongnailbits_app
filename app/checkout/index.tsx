@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, TextInput } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, TextInput, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -16,7 +16,7 @@ import { OrderSummary } from '@/components/checkout/OrderSummary';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { trackBeginCheckout, trackPurchase } from '@/lib/analytics/tracker';
-import type { ShippingMethod, PaymentMethod } from '@/types/order';
+import type { ShippingData } from '@/components/checkout/ShippingForm';
 
 export default function CheckoutScreen() {
   const router = useRouter();
@@ -35,29 +35,86 @@ export default function CheckoutScreen() {
     email: profile?.email ?? '',
   });
 
-  const [shipping, setShipping] = useState({
-    method: 'nova_poshta' as ShippingMethod,
+  const [shipping, setShipping] = useState<ShippingData>({
+    method: 'np_warehouse',
     city: '',
+    cityRef: '',
+    deliveryCityRef: '',
     warehouse: '',
+    warehouseRef: '',
+    street: '',
+    streetRef: '',
+    house: '',
     address: '',
     country: '',
+    intlCity: '',
+    intlAddress: '',
+    intlPostcode: '',
   });
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
+  const [paymentMethod, setPaymentMethod] = useState('cod');
+  const [companyName, setCompanyName] = useState('');
+  const [edrpou, setEdrpou] = useState('');
   const [notes, setNotes] = useState('');
+
+  const isInternational = shipping.method === 'np_intl' || shipping.method === 'ukrposhta_intl';
 
   React.useEffect(() => {
     trackBeginCheckout(total);
   }, []);
 
-  const handleSubmit = async () => {
-    if (!contact.phone || !contact.firstName) {
+  // При переключении на международную доставку — сбросить cod
+  React.useEffect(() => {
+    if (isInternational && paymentMethod === 'cod') {
+      setPaymentMethod('invoice');
+    }
+  }, [isInternational]);
+
+  function validate(): boolean {
+    if (!contact.phone || !contact.firstName || !contact.lastName) {
       showToast(
-        language === 'ru' ? 'Заполните обязательные поля' : "Заповніть обов'язкові поля",
+        language === 'ru' ? 'Заполните контактные данные' : 'Заповніть контактні дані',
         'error'
       );
-      return;
+      return false;
     }
+
+    const m = shipping.method;
+
+    if (m === 'np_warehouse' && (!shipping.city || !shipping.warehouse)) {
+      showToast(
+        language === 'ru' ? 'Выберите город и отделение' : 'Оберіть місто та відділення',
+        'error'
+      );
+      return false;
+    }
+    if (m === 'np_address' && (!shipping.city || !shipping.street || !shipping.house)) {
+      showToast(
+        language === 'ru' ? 'Заполните адрес доставки' : 'Заповніть адресу доставки',
+        'error'
+      );
+      return false;
+    }
+    if ((m === 'np_intl' || m === 'ukrposhta_intl') && (!shipping.country || !shipping.intlCity || !shipping.intlAddress)) {
+      showToast(
+        language === 'ru' ? 'Заполните международный адрес' : 'Заповніть міжнародну адресу',
+        'error'
+      );
+      return false;
+    }
+    if (paymentMethod === 'invoice' && (!companyName || !edrpou)) {
+      showToast(
+        language === 'ru' ? 'Заполните данные компании' : 'Заповніть дані компанії',
+        'error'
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  const handleSubmit = async () => {
+    if (!validate()) return;
 
     setSubmitting(true);
     try {
@@ -72,9 +129,27 @@ export default function CheckoutScreen() {
             image: item.image,
           })),
           contact,
-          shipping,
-          payment: { method: paymentMethod },
+          shipping: {
+            method: shipping.method,
+            city: shipping.city,
+            cityRef: shipping.cityRef,
+            warehouse: shipping.warehouse,
+            warehouseRef: shipping.warehouseRef,
+            street: shipping.street,
+            house: shipping.house,
+            address: shipping.address,
+            country: shipping.country,
+            intlCity: shipping.intlCity,
+            intlAddress: shipping.intlAddress,
+            intlPostcode: shipping.intlPostcode,
+          },
+          payment: {
+            method: paymentMethod,
+            companyName: paymentMethod === 'invoice' ? companyName : undefined,
+            edrpou: paymentMethod === 'invoice' ? edrpou : undefined,
+          },
           notes,
+          platform: Platform.OS,
         },
       });
 
@@ -83,8 +158,8 @@ export default function CheckoutScreen() {
       trackPurchase(data.orderNumber, total);
       clearCart();
       router.replace(`/checkout/success?orderNumber=${data.orderNumber}`);
-    } catch (error) {
-      console.error('Order failed:', error);
+    } catch (err) {
+      console.error('Order failed:', err);
       showToast(
         language === 'ru' ? 'Ошибка оформления заказа' : 'Помилка оформлення замовлення',
         'error'
@@ -109,10 +184,23 @@ export default function CheckoutScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <ContactForm data={contact} onChange={setContact} />
+
         <ShippingForm data={shipping} onChange={setShipping} />
-        <PaymentForm method={paymentMethod} onChange={setPaymentMethod} />
+
+        <PaymentForm
+          method={paymentMethod}
+          onChange={setPaymentMethod}
+          isInternational={isInternational}
+          companyName={companyName}
+          edrpou={edrpou}
+          onCompanyChange={({ companyName: cn, edrpou: ed }) => {
+            setCompanyName(cn);
+            setEdrpou(ed);
+          }}
+        />
 
         {/* Notes */}
         <View style={styles.notesSection}>
