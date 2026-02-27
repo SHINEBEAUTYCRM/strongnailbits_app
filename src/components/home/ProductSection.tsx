@@ -3,7 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native
 import { ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { ProductCard } from '@/components/product/ProductCard';
-import { colors, fontSizes, spacing } from '@/theme';
+import { colors, spacing } from '@/theme';
 import type { ProductListItem } from '@/types/product';
 
 interface ProductSectionProps {
@@ -42,7 +42,7 @@ export function ProductSection({
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <View style={styles.cardWrapper}>
-            <ProductCard product={item} />
+            <ProductCard product={item} compact />
           </View>
         )}
         keyExtractor={(item) => item.id}
@@ -53,7 +53,7 @@ export function ProductSection({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.sm,
   },
   header: {
     flexDirection: 'row',
@@ -63,8 +63,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: fontSizes.xl,
-    fontFamily: 'Unbounded-Medium',
+    fontSize: 18,
+    fontFamily: 'Unbounded-Bold',
     color: colors.dark,
   },
   seeAll: {
@@ -73,14 +73,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   seeAllText: {
-    fontSize: fontSizes.sm,
+    fontSize: 13,
     fontFamily: 'Inter-Medium',
     color: colors.coral,
   },
   list: {
     paddingHorizontal: spacing.lg,
+    gap: spacing.md,
   },
-  cardWrapper: {
-    marginRight: spacing.md,
-  },
+  cardWrapper: {},
 });

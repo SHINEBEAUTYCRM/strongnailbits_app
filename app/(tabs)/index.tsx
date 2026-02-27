@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, StyleSheet } from 'react-native';
+import { ScrollView, View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Bell } from 'lucide-react-native';
-import { TouchableOpacity, Text } from 'react-native';
-import { Image } from 'expo-image';
+import { Search, ShoppingCart } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase/client';
 import { colors, spacing, fontSizes } from '@/theme';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useCartStore } from '@/stores/cart';
 import { trackPageView } from '@/lib/analytics/tracker';
 import { HeroBanner } from '@/components/home/HeroBanner';
 import { QuickCategories } from '@/components/home/QuickCategories';
@@ -23,7 +21,7 @@ const PRODUCT_SELECT =
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { language } = useLanguage();
+  const cartCount = useCartStore((s) => s.getCount());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const [banners, setBanners] = useState<any[]>([]);
@@ -111,15 +109,22 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <Text style={styles.logo}>ShineShop</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => router.push('/search')}>
+          <TouchableOpacity
+            onPress={() => router.push('/search')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Search size={24} color={colors.dark} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/notifications')}>
-            <Bell size={24} color={colors.dark} />
-            {false && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/cart')}
+            style={styles.cartIconWrapper}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <ShoppingCart size={24} color={colors.dark} />
+            {cartCount > 0 && (
+              <View style={styles.headerBadge}>
+                <Text style={styles.headerBadgeText}>
+                  {cartCount > 99 ? '99+' : cartCount}
                 </Text>
               </View>
             )}
@@ -132,44 +137,42 @@ export default function HomeScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Banner */}
-        <HeroBanner banners={banners} />
+        {/* Search Bar */}
+        <TouchableOpacity
+          style={styles.searchBar}
+          onPress={() => router.push('/search')}
+          activeOpacity={0.7}
+        >
+          <Search size={20} color={colors.darkTertiary} />
+          <Text style={styles.searchPlaceholder}>Пошук товарів...</Text>
+        </TouchableOpacity>
 
         {/* Quick Categories */}
-        <View style={styles.section}>
-          <QuickCategories categories={categories} />
-        </View>
+        <QuickCategories categories={categories} />
+
+        {/* Hero Banner */}
+        {banners.length > 0 && <HeroBanner banners={banners} />}
 
         {/* Popular */}
         <ProductSection
-          title={language === 'ru' ? 'Популярные' : 'Популярні'}
+          title="Популярні"
           products={popular}
           seeAllLink="/(tabs)/catalog"
         />
 
         {/* Sale */}
         {sale.length > 0 && (
-          <ProductSection
-            title={language === 'ru' ? 'Распродажа' : 'Розпродаж'}
-            products={sale}
-          />
+          <ProductSection title="Розпродаж" products={sale} />
         )}
 
         {/* New */}
-        <ProductSection
-          title={language === 'ru' ? 'Новинки' : 'Новинки'}
-          products={newest}
-        />
+        <ProductSection title="Новинки" products={newest} />
 
         {/* Features */}
-        <View style={styles.section}>
-          <Features />
-        </View>
+        <Features />
 
         {/* B2B CTA */}
-        <View style={styles.section}>
-          <B2BCta />
-        </View>
+        <B2BCta />
       </ScrollView>
     </SafeAreaView>
   );
@@ -187,11 +190,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
   },
   logo: {
-    fontSize: fontSizes.xl,
+    fontSize: 22,
     fontFamily: 'Unbounded-Bold',
     color: colors.coral,
   },
@@ -200,10 +201,13 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     alignItems: 'center',
   },
-  badge: {
+  cartIconWrapper: {
+    position: 'relative',
+  },
+  headerBadge: {
     position: 'absolute',
     top: -6,
-    right: -8,
+    right: -10,
     backgroundColor: colors.coral,
     borderRadius: 10,
     minWidth: 18,
@@ -212,20 +216,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
   },
-  badgeText: {
-    color: '#fff',
+  headerBadgeText: {
+    color: '#FFFFFF',
     fontSize: 10,
     fontFamily: 'Inter-Bold',
+    lineHeight: 14,
   },
   scroll: {
     flex: 1,
   },
   content: {
     paddingBottom: spacing['3xl'],
-    gap: spacing.xl,
-    paddingTop: spacing.lg,
+    gap: spacing.lg,
+    paddingTop: spacing.md,
   },
-  section: {
-    // spacing between sections handled by gap
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.sand,
+    borderRadius: 24,
+    paddingHorizontal: spacing.lg,
+    height: 44,
+    marginHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  searchPlaceholder: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Inter-Regular',
+    color: colors.darkTertiary,
   },
 });

@@ -1,9 +1,12 @@
 import React from 'react';
-import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { ScrollView, TouchableOpacity, Text, View, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { colors, fontSizes, borderRadius, spacing } from '@/theme';
+import { colors, spacing } from '@/theme';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { Category } from '@/types/product';
+
+const CIRCLE_SIZE = 64;
 
 interface QuickCategoriesProps {
   categories: Category[];
@@ -24,11 +27,23 @@ export function QuickCategories({ categories }: QuickCategoriesProps) {
       {categories.map((category) => (
         <TouchableOpacity
           key={category.id}
-          style={styles.chip}
+          style={styles.item}
           onPress={() => router.push(`/(tabs)/catalog/${category.slug}`)}
           activeOpacity={0.7}
         >
-          <Text style={styles.chipText}>
+          <View style={styles.circle}>
+            {category.image_url ? (
+              <Image
+                source={{ uri: category.image_url }}
+                style={styles.circleImage}
+                contentFit="cover"
+                transition={200}
+              />
+            ) : (
+              <View style={styles.circlePlaceholder} />
+            )}
+          </View>
+          <Text style={styles.label} numberOfLines={2}>
             {tField(category.name_uk, category.name_ru)}
           </Text>
         </TouchableOpacity>
@@ -40,17 +55,34 @@ export function QuickCategories({ categories }: QuickCategoriesProps) {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  chip: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+  item: {
+    alignItems: 'center',
+    width: 72,
+  },
+  circle: {
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_SIZE / 2,
     backgroundColor: colors.sand,
-    borderRadius: borderRadius.pill,
+    overflow: 'hidden',
   },
-  chipText: {
-    fontSize: fontSizes.sm,
+  circleImage: {
+    width: '100%',
+    height: '100%',
+  },
+  circlePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.sand,
+  },
+  label: {
+    fontSize: 11,
     fontFamily: 'Inter-Medium',
     color: colors.dark,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 14,
   },
 });

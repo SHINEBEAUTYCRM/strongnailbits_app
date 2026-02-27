@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   banner: {
     width: BANNER_WIDTH,
     height: BANNER_HEIGHT,
-    borderRadius: borderRadius.lg,
+    borderRadius: 12,
     backgroundColor: colors.sand,
   },
   indicators: {

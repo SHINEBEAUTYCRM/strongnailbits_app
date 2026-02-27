@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, LayoutGrid, ShoppingBag, Heart, User } from 'lucide-react-native';
-import { colors, fontSizes } from '@/theme';
+import { Home, LayoutGrid, ShoppingCart, Heart, User } from 'lucide-react-native';
+import { colors } from '@/theme';
 import { useCartStore } from '@/stores/cart';
 import { useWishlistStore } from '@/stores/wishlist';
 
@@ -16,14 +16,19 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.coral,
         tabBarInactiveTintColor: colors.darkTertiary,
         tabBarStyle: {
-          backgroundColor: colors.white,
-          borderTopColor: colors.borderLight,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 0,
           height: 85,
           paddingBottom: 25,
           paddingTop: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
+          elevation: 10,
         },
         tabBarLabelStyle: {
-          fontSize: fontSizes.xs,
+          fontSize: 10,
           fontFamily: 'Inter-Medium',
         },
       }}
@@ -32,32 +37,30 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Головна',
-          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Home size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="catalog"
         options={{
           title: 'Каталог',
-          tabBarIcon: ({ color, size }) => (
-            <LayoutGrid size={size} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <LayoutGrid size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="cart"
         options={{
           title: 'Кошик',
-          tabBarIcon: ({ color, size }) => (
-            <ShoppingBag size={size} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <ShoppingCart size={24} color={color} />,
           tabBarBadge: cartCount > 0 ? cartCount : undefined,
           tabBarBadgeStyle: {
             backgroundColor: colors.coral,
+            color: '#FFFFFF',
             fontSize: 10,
             minWidth: 18,
             height: 18,
             lineHeight: 18,
+            borderRadius: 9,
           },
         }}
       />
@@ -65,14 +68,16 @@ export default function TabsLayout() {
         name="wishlist"
         options={{
           title: 'Обране',
-          tabBarIcon: ({ color, size }) => <Heart size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Heart size={24} color={color} />,
           tabBarBadge: wishlistCount > 0 ? wishlistCount : undefined,
           tabBarBadgeStyle: {
             backgroundColor: colors.coral,
+            color: '#FFFFFF',
             fontSize: 10,
             minWidth: 18,
             height: 18,
             lineHeight: 18,
+            borderRadius: 9,
           },
         }}
       />
@@ -80,7 +85,7 @@ export default function TabsLayout() {
         name="account"
         options={{
           title: 'Профіль',
-          tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+          tabBarIcon: ({ color }) => <User size={24} color={color} />,
         }}
       />
     </Tabs>

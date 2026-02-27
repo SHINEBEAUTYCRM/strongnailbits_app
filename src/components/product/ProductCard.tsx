@@ -2,27 +2,30 @@ import React, { memo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { Heart, ShoppingBag } from 'lucide-react-native';
+import { Heart } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { colors, fontSizes, borderRadius, spacing, shadows } from '@/theme';
+import { colors, spacing, shadows } from '@/theme';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCartStore } from '@/stores/cart';
 import { useWishlistStore } from '@/stores/wishlist';
 import { formatPrice, formatDiscount } from '@/utils/format';
-import { Badge } from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
 import { trackAddToCart } from '@/lib/analytics/tracker';
 import type { ProductListItem } from '@/types/product';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_WIDTH = (SCREEN_WIDTH - spacing.lg * 3) / 2;
-const IMAGE_SIZE = CARD_WIDTH;
+const GRID_CARD_WIDTH = (SCREEN_WIDTH - spacing.lg * 3) / 2;
+const COMPACT_CARD_WIDTH = 160;
 
 interface ProductCardProps {
   product: ProductListItem;
+  compact?: boolean;
 }
 
-export const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({
+  product,
+  compact,
+}: ProductCardProps) {
   const router = useRouter();
   const { tField } = useLanguage();
   const addToCart = useCartStore((s) => s.addItem);
@@ -32,7 +35,10 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
 
   const name = tField(product.name_uk, product.name_ru);
   const isOutOfStock = product.quantity <= 0;
-  const discount = product.old_price ? formatDiscount(product.price, product.old_price) : '';
+  const discount = product.old_price
+    ? formatDiscount(product.price, product.old_price)
+    : '';
+  const cardWidth = compact ? COMPACT_CARD_WIDTH : GRID_CARD_WIDTH;
 
   const handlePress = useCallback(() => {
     router.push(`/product/${product.slug}`);
@@ -72,12 +78,11 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
 
   return (
     <TouchableOpacity
-      style={[styles.card, shadows.sm]}
+      style={[styles.card, shadows.sm, { width: cardWidth }]}
       onPress={handlePress}
       activeOpacity={0.8}
     >
-      {/* Image */}
-      <View style={styles.imageContainer}>
+      <View style={[styles.imageContainer, { width: cardWidth, height: cardWidth }]}>
         <Image
           source={{ uri: product.main_image_url ?? undefined }}
           style={styles.image}
@@ -86,27 +91,24 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
           placeholder={require('../../../assets/images/icon.png')}
         />
 
-        {/* Badges */}
-        <View style={styles.badges}>
-          {discount ? <Badge text={discount} variant="coral" size="sm" /> : null}
-          {product.is_new ? <Badge text="NEW" variant="violet" size="sm" /> : null}
-          {product.is_featured ? <Badge text="HIT" variant="coral" size="sm" /> : null}
-        </View>
+        {discount ? (
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountText}>{discount}</Text>
+          </View>
+        ) : null}
 
-        {/* Wishlist button */}
         <TouchableOpacity
           style={styles.wishlistButton}
           onPress={handleToggleWishlist}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Heart
-            size={20}
+            size={18}
             color={hasInWishlist ? colors.coral : colors.darkTertiary}
             fill={hasInWishlist ? colors.coral : 'transparent'}
           />
         </TouchableOpacity>
 
-        {/* Out of stock overlay */}
         {isOutOfStock && (
           <View style={styles.outOfStockOverlay}>
             <Text style={styles.outOfStockText}>Немає в наявності</Text>
@@ -114,34 +116,32 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
         )}
       </View>
 
-      {/* Info */}
       <View style={styles.info}>
-        {product.brands?.name && (
-          <Text style={styles.brand} numberOfLines={1}>
-            {product.brands.name}
-          </Text>
-        )}
         <Text style={styles.name} numberOfLines={2}>
           {name}
         </Text>
 
-        {/* Price */}
         <View style={styles.priceRow}>
           <Text style={styles.price}>{formatPrice(product.price)}</Text>
           {product.old_price && product.old_price > product.price && (
-            <Text style={styles.oldPrice}>{formatPrice(product.old_price)}</Text>
+            <Text style={styles.oldPrice}>
+              {formatPrice(product.old_price)}
+            </Text>
           )}
         </View>
 
-        {/* Add to cart */}
         <TouchableOpacity
           style={[styles.cartButton, isOutOfStock && styles.cartButtonDisabled]}
           onPress={handleAddToCart}
           disabled={isOutOfStock}
           activeOpacity={0.7}
         >
-          <ShoppingBag size={16} color={isOutOfStock ? colors.darkTertiary : '#fff'} />
-          <Text style={[styles.cartButtonText, isOutOfStock && styles.cartButtonTextDisabled]}>
+          <Text
+            style={[
+              styles.cartButtonText,
+              isOutOfStock && styles.cartButtonTextDisabled,
+            ]}
+          >
             {isOutOfStock ? 'Немає' : 'В кошик'}
           </Text>
         </TouchableOpacity>
@@ -152,33 +152,38 @@ export const ProductCard = memo(function ProductCard({ product }: ProductCardPro
 
 const styles = StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
     backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   imageContainer: {
-    width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
     position: 'relative',
   },
   image: {
     width: '100%',
     height: '100%',
   },
-  badges: {
+  discountBadge: {
     position: 'absolute',
-    top: spacing.sm,
-    left: spacing.sm,
-    gap: spacing.xs,
+    top: 8,
+    left: 8,
+    backgroundColor: colors.coral,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  discountText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontFamily: 'Inter-Bold',
   },
   wishlistButton: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    top: 8,
+    right: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -190,61 +195,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   outOfStockText: {
-    fontSize: fontSizes.xs,
+    fontSize: 11,
     fontFamily: 'Inter-SemiBold',
     color: colors.darkSecondary,
   },
   info: {
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  brand: {
-    fontSize: fontSizes.xs,
-    fontFamily: 'Inter-Regular',
-    color: colors.darkTertiary,
-    textTransform: 'uppercase',
+    padding: 10,
+    gap: 4,
   },
   name: {
-    fontSize: fontSizes.sm,
+    fontSize: 13,
     fontFamily: 'Inter-Medium',
     color: colors.dark,
-    lineHeight: 18,
-    minHeight: 36,
+    lineHeight: 17,
+    minHeight: 34,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
+    gap: 6,
   },
   price: {
-    fontSize: fontSizes.lg,
+    fontSize: 15,
     fontFamily: 'JetBrainsMono-Bold',
     color: colors.dark,
   },
   oldPrice: {
-    fontSize: fontSizes.sm,
+    fontSize: 12,
     fontFamily: 'JetBrainsMono-Regular',
     color: colors.darkTertiary,
     textDecorationLine: 'line-through',
   },
   cartButton: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
     backgroundColor: colors.coral,
-    borderRadius: borderRadius.sm,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.sm,
+    borderRadius: 8,
+    paddingVertical: 8,
+    marginTop: 4,
   },
   cartButtonDisabled: {
     backgroundColor: colors.sand,
   },
   cartButtonText: {
-    fontSize: fontSizes.sm,
+    fontSize: 13,
     fontFamily: 'Inter-SemiBold',
-    color: '#fff',
+    color: '#FFFFFF',
   },
   cartButtonTextDisabled: {
     color: colors.darkTertiary,
