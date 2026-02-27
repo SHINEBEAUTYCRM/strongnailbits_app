@@ -1,17 +1,5 @@
-/**
- * Push notifications are temporarily disabled.
- * expo-notifications was removed to fix startup crash (SIGABRT in TurboModule).
- * TODO: re-add expo-notifications when ready to enable push.
- */
-
-export async function registerForPushNotifications(
-  _userId?: string
-): Promise<string | null> {
+// Notifications disabled — expo-notifications removed
+export async function setupNotifications() {}
+export async function registerForPushNotifications() {
   return null;
-}
-
-export function addNotificationResponseListener(
-  _callback: (response: unknown) => void
-) {
-  return { remove: () => {} };
 }
