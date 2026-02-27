@@ -43,6 +43,7 @@ export default function HomeScreen() {
             .from('banners')
             .select('*')
             .eq('is_active', true)
+            .in('target', ['mobile', 'all'])
             .order('position'),
           supabase
             .from('categories')
@@ -107,7 +108,10 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>ShineShop</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={styles.logoShine}>SHINE </Text>
+          <Text style={styles.logoShop}>SHOP</Text>
+        </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
             onPress={() => router.push('/search')}
@@ -191,10 +195,15 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     backgroundColor: colors.white,
   },
-  logo: {
-    fontSize: 22,
+  logoShine: {
+    fontSize: 20,
     fontFamily: 'Unbounded-Bold',
-    color: colors.coral,
+    color: colors.dark,
+  },
+  logoShop: {
+    fontSize: 20,
+    fontFamily: 'Unbounded-Bold',
+    color: '#E11D48',
   },
   headerActions: {
     flexDirection: 'row',

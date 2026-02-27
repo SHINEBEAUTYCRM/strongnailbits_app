@@ -18,12 +18,14 @@ import { QuantitySelector } from '@/components/ui/QuantitySelector';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { formatPrice, formatDiscount } from '@/utils/format';
 import { trackViewItem, trackAddToCart } from '@/lib/analytics/tracker';
 import type { Product, ProductListItem } from '@/types/product';
 
 export default function ProductScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
+  console.log('slug:', slug);
   const router = useRouter();
   const { user } = useAuth();
   const { language, tField } = useLanguage();
@@ -37,13 +39,26 @@ export default function ProductScreen() {
   const [b2bPrice, setB2bPrice] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (slug) loadProduct();
+    if (!slug) {
+      setError('Товар не знайдено');
+      setIsLoading(false);
+      return;
+    }
+    loadProduct();
   }, [slug]);
 
   async function loadProduct() {
     setIsLoading(true);
+    setError(null);
+
+    const timeout = setTimeout(() => {
+      setIsLoading(false);
+      setError('Завантаження тривало занадто довго. Спробуйте ще раз.');
+    }, 10000);
+
     try {
       const { data } = await supabase
         .from('products')
@@ -58,42 +73,65 @@ export default function ProductScreen() {
         .eq('slug', slug)
         .single();
 
-      if (data) {
-        const prod = data as unknown as Product;
-        setProduct(prod);
-        trackViewItem(prod.id, prod.name_uk);
+      clearTimeout(timeout);
 
-        // Load related
-        if (prod.category_id) {
-          const { data: rel } = await supabase
-            .from('products')
-            .select('id, slug, name_uk, name_ru, price, old_price, main_image_url, quantity, status, is_new, is_featured')
-            .eq('category_id', prod.category_id)
-            .neq('id', prod.id)
-            .eq('status', 'active')
-            .limit(10);
-          setRelated((rel ?? []) as ProductListItem[]);
-        }
-
-        // Load B2B price
-        if (user) {
-          const { data: bp } = await supabase
-            .from('customer_prices')
-            .select('price')
-            .eq('profile_id', user.id)
-            .eq('product_id', prod.id)
-            .single();
-          if (bp) setB2bPrice(bp.price);
-        }
+      if (!data) {
+        setError('Товар не знайдено');
+        return;
       }
-    } catch (error) {
-      console.error('Failed to load product:', error);
+
+      const prod = data as unknown as Product;
+      setProduct(prod);
+      trackViewItem(prod.id, prod.name_uk);
+
+      if (prod.category_id) {
+        const { data: rel } = await supabase
+          .from('products')
+          .select('id, slug, name_uk, name_ru, price, old_price, main_image_url, quantity, status, is_new, is_featured')
+          .eq('category_id', prod.category_id)
+          .neq('id', prod.id)
+          .eq('status', 'active')
+          .limit(10);
+        setRelated((rel ?? []) as ProductListItem[]);
+      }
+
+      if (user) {
+        const { data: bp } = await supabase
+          .from('customer_prices')
+          .select('price')
+          .eq('profile_id', user.id)
+          .eq('product_id', prod.id)
+          .single();
+        if (bp) setB2bPrice(bp.price);
+      }
+    } catch (err) {
+      clearTimeout(timeout);
+      console.error('Failed to load product:', err);
+      setError('Не вдалося завантажити товар. Спробуйте ще раз.');
     } finally {
+      clearTimeout(timeout);
       setIsLoading(false);
     }
   }
 
-  if (isLoading || !product) return <Loading fullScreen />;
+  if (isLoading) return <Loading fullScreen />;
+
+  if (error || !product) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <ArrowLeft size={24} color={colors.dark} />
+          </TouchableOpacity>
+        </View>
+        <ErrorState
+          fullScreen
+          title={error ?? 'Товар не знайдено'}
+          onRetry={slug ? loadProduct : undefined}
+        />
+      </SafeAreaView>
+    );
+  }
 
   const name = tField(product.name_uk, product.name_ru);
   const description = tField(product.description_uk, product.description_ru);
