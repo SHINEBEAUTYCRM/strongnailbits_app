@@ -40,6 +40,7 @@ export default function ProductScreen() {
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [debugError, setDebugError] = useState<string>('');
 
   useEffect(() => {
     if (!slug) {
@@ -104,9 +105,10 @@ export default function ProductScreen() {
           .single();
         if (bp) setB2bPrice(bp.price);
       }
-    } catch (err) {
+    } catch (error: any) {
       clearTimeout(timeout);
-      console.error('Failed to load product:', err);
+      console.error('Failed to load product:', error);
+      setDebugError(error?.message || JSON.stringify(error));
       setError('Не вдалося завантажити товар. Спробуйте ще раз.');
     } finally {
       clearTimeout(timeout);
@@ -127,6 +129,9 @@ export default function ProductScreen() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
           <Text style={{ fontSize: 11, color: 'red', fontFamily: 'JetBrainsMono-Regular', textAlign: 'center', marginBottom: 16 }}>
             slug: "{slug}" | type: {typeof slug}
+          </Text>
+          <Text style={{ fontSize: 11, color: 'red', fontFamily: 'JetBrainsMono-Regular', textAlign: 'center', marginBottom: 8 }}>
+            error: {debugError || 'product is null'}
           </Text>
           <ErrorState fullScreen onRetry={() => { setError(null); setIsLoading(true); loadProduct(); }} />
         </View>
