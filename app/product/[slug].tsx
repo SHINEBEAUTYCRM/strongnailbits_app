@@ -39,6 +39,7 @@ export default function ProductScreen() {
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!slug) {
@@ -77,6 +78,7 @@ export default function ProductScreen() {
 
       if (queryError) {
         console.error('Product query error:', queryError.message, queryError.code);
+        setLoadError(`Query: ${queryError.message} (${queryError.code})`);
       }
 
       // Fallback: strip -uk / -ru suffix
@@ -136,7 +138,9 @@ export default function ProductScreen() {
       }
     } catch (error: any) {
       clearTimeout(timeout);
-      console.error('Failed to load product:', error);
+      const msg = error?.message || error?.code || JSON.stringify(error);
+      console.error('Failed to load product:', msg);
+      setLoadError(msg);
       setError('Не вдалося завантажити товар. Спробуйте ще раз.');
     } finally {
       clearTimeout(timeout);
@@ -148,14 +152,19 @@ export default function ProductScreen() {
 
   if (!product) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.pearl }} edges={['top']}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.white }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
+        <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <ArrowLeft size={24} color={colors.dark} />
           </TouchableOpacity>
         </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-          <ErrorState fullScreen onRetry={() => { setError(null); setIsLoading(true); loadProduct(); }} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ color: 'red', fontSize: 14, textAlign: 'center', marginBottom: 10 }}>
+            {loadError || 'product is null'}
+          </Text>
+          <Text style={{ color: '#666', fontSize: 12, textAlign: 'center' }}>
+            slug: {slug}
+          </Text>
         </View>
       </SafeAreaView>
     );
