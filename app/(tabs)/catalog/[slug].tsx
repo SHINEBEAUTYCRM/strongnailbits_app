@@ -31,6 +31,7 @@ export default function CategoryProductsScreen() {
   const [brands, setBrands] = useState<Array<{ id: string; name: string }>>([]);
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Find current category
   const currentCategory = useMemo(
@@ -199,8 +200,12 @@ export default function CategoryProductsScreen() {
         isLoading={isLoading}
         isLoadingMore={isLoadingMore}
         onEndReached={loadMore}
-        onRefresh={refresh}
-        refreshing={false}
+        onRefresh={async () => {
+          setRefreshing(true);
+          await refresh();
+          setRefreshing(false);
+        }}
+        refreshing={refreshing}
         ListEmptyComponent={
           <EmptyState
             icon={<Package size={48} color={colors.darkTertiary} />}

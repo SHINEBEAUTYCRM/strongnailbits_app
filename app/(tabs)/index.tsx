@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { ScrollView, View, StyleSheet, TouchableOpacity, Text, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, ShoppingCart } from 'lucide-react-native';
@@ -62,6 +62,13 @@ export default function HomeScreen() {
   const [categoryBlocks, setCategoryBlocks] = useState<CategoryBlockData[]>([]);
   const [promo, setPromo] = useState<any[]>([]);
   const [dealData, setDealData] = useState<DealData | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     trackPageView('/', 'Home');
@@ -220,6 +227,9 @@ export default function HomeScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.coral]} tintColor={colors.coral} />
+        }
       >
         {/* Promo Strip */}
         {promo.length > 0 && <PromoStrip banner={promo[0]} />}

@@ -174,6 +174,8 @@ serve(async (req) => {
         shipping,
         payment_method: payment.method,
         notes: sanitizedNotes,
+        source: 'mobile',
+        source_device: body.platform ?? 'mobile',
       })
       .select()
       .single();

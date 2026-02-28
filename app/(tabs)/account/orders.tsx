@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import { View, Text, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, FileText } from 'lucide-react-native';
@@ -19,10 +19,7 @@ export default function OrdersScreen() {
   const { language } = useLanguage();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (user) fetchOrders();
-  }, [user]);
+  const [refreshing, setRefreshing] = useState(false);
 
   async function fetchOrders() {
     try {
@@ -39,6 +36,34 @@ export default function OrdersScreen() {
       setIsLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (user) fetchOrders();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('orders-list-sync')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `profile_id=eq.${user.id}`,
+        },
+        () => {
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -68,6 +93,18 @@ export default function OrdersScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={async () => {
+                setRefreshing(true);
+                await fetchOrders();
+                setRefreshing(false);
+              }}
+              colors={[colors.coral]}
+              tintColor={colors.coral}
+            />
+          }
         />
       )}
     </SafeAreaView>

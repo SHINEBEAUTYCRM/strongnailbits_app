@@ -46,6 +46,16 @@ export default function TabsLayout() {
           title: 'Каталог',
           tabBarIcon: ({ color }) => <LayoutGrid size={24} color={color} />,
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            const state = navigation.getState();
+            const catalogRoute = state.routes.find((r: any) => r.name === 'catalog');
+            if (catalogRoute && catalogRoute.state && catalogRoute.state.index > 0) {
+              e.preventDefault();
+              navigation.navigate('catalog', { screen: 'index' });
+            }
+          },
+        })}
       />
       <Tabs.Screen
         name="cart"
