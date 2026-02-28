@@ -5,8 +5,9 @@ Sentry.init({
   tracesSampleRate: 1.0,
 });
 
-import React, { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import React, { useEffect, useRef } from 'react';
+import { BackHandler, Platform } from 'react-native';
+import { Stack, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,13 +15,50 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
 import { useAuthStore } from '@/stores/auth';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
-import { ToastProvider } from '@/components/ui/Toast';
+import { useCartSync } from '@/hooks/useCartSync';
+import { ToastProvider, useToast } from '@/components/ui/Toast';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { colors } from '@/theme';
 
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
+
+function AndroidBackHandler() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { showToast } = useToast();
+  const lastBackPress = useRef(0);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const ROOT_TABS = ['/', '/catalog', '/cart', '/wishlist', '/account'];
+    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+      const isRootTab = ROOT_TABS.some(
+        (tab) => pathname === tab || pathname === tab + '/'
+      );
+
+      if (isRootTab) {
+        const now = Date.now();
+        if (now - lastBackPress.current < 2000) {
+          BackHandler.exitApp();
+          return true;
+        }
+        lastBackPress.current = now;
+        showToast('Натисніть ще раз, щоб вийти', 'info');
+        return true;
+      }
+
+      router.back();
+      return true;
+    });
+
+    return () => handler.remove();
+  }, [pathname]);
+
+  return null;
+}
 
 function RootLayout() {
   const [fontsLoaded, setFontsLoaded] = React.useState(false);
@@ -59,6 +97,9 @@ function RootLayout() {
   // Realtime subscriptions
   useRealtimeSync();
 
+  // Sync cart with Supabase
+  useCartSync();
+
   if (!fontsLoaded) return null;
 
   return (
@@ -66,6 +107,7 @@ function RootLayout() {
       <SafeAreaProvider>
         <ErrorBoundary>
           <ToastProvider>
+            <AndroidBackHandler />
             <OfflineBanner />
             <StatusBar style="dark" />
             <Stack
