@@ -16,9 +16,12 @@ const BANNER_HEIGHT = BANNER_WIDTH * 0.45;
 
 interface Banner {
   id: string;
-  image_url: string;
+  image_url?: string;
   image_mobile_url?: string;
+  image_desktop?: string;
+  image_mobile?: string;
   link?: string;
+  button_url?: string;
 }
 
 interface HeroBannerProps {
@@ -63,11 +66,12 @@ export function HeroBanner({ banners }: HeroBannerProps) {
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={() => {
-              if (item.link) router.push(item.link as never);
+              const url = item.button_url || item.link;
+              if (url) router.push(url as never);
             }}
           >
             <Image
-              source={{ uri: item.image_mobile_url ?? item.image_url }}
+              source={{ uri: item.image_mobile ?? item.image_mobile_url ?? item.image_desktop ?? item.image_url }}
               style={styles.banner}
               contentFit="cover"
               transition={300}

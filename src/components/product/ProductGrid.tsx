@@ -35,7 +35,7 @@ export function ProductGrid({
     <FlashList
       data={products}
       numColumns={2}
-      estimatedItemSize={280}
+      estimatedItemSize={320}
       renderItem={({ item }) => (
         <View style={styles.cardWrapper}>
           <ProductCard product={item} />

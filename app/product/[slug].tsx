@@ -25,7 +25,6 @@ import type { Product, ProductListItem } from '@/types/product';
 
 export default function ProductScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
-  console.log('slug:', slug);
   const router = useRouter();
   const { user } = useAuth();
   const { language, tField } = useLanguage();
@@ -40,7 +39,6 @@ export default function ProductScreen() {
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [debugError, setDebugError] = useState<string>('');
 
   useEffect(() => {
     if (!slug) {
@@ -61,18 +59,45 @@ export default function ProductScreen() {
     }, 10000);
 
     try {
-      const { data } = await supabase
+      const PRODUCT_QUERY = `
+        id, slug, name_uk, name_ru, sku, description_uk, description_ru,
+        price, old_price, wholesale_price, quantity, status,
+        images, main_image_url, weight, properties,
+        is_new, is_featured, created_at, updated_at,
+        category_id, categories(id, slug, name_uk, name_ru),
+        brand_id, brands(id, name, slug, logo_url)
+      `;
+
+      // Try exact slug first
+      let { data } = await supabase
         .from('products')
-        .select(`
-          id, slug, name_uk, name_ru, sku, description_uk, description_ru,
-          price, old_price, wholesale_price, quantity, status,
-          images, main_image_url, weight, properties,
-          is_new, is_featured, created_at, updated_at,
-          category_id, categories(id, slug, name_uk, name_ru),
-          brand_id, brands(id, name, slug, logo_url)
-        `)
+        .select(PRODUCT_QUERY)
         .eq('slug', slug)
         .single();
+
+      // Fallback: strip -uk / -ru suffix
+      if (!data && (slug.endsWith('-uk') || slug.endsWith('-ru'))) {
+        const cleanSlug = slug.replace(/-(uk|ru)$/, '');
+        const fallback = await supabase
+          .from('products')
+          .select(PRODUCT_QUERY)
+          .eq('slug', cleanSlug)
+          .single();
+        data = fallback.data;
+      }
+
+      // Fallback 2: partial match
+      if (!data) {
+        const basePart = slug.replace(/-(uk|ru)$/, '');
+        const fallback2 = await supabase
+          .from('products')
+          .select(PRODUCT_QUERY)
+          .ilike('slug', `${basePart}%`)
+          .eq('status', 'active')
+          .limit(1)
+          .single();
+        data = fallback2.data;
+      }
 
       clearTimeout(timeout);
 
@@ -108,7 +133,6 @@ export default function ProductScreen() {
     } catch (error: any) {
       clearTimeout(timeout);
       console.error('Failed to load product:', error);
-      setDebugError(error?.message || JSON.stringify(error));
       setError('Не вдалося завантажити товар. Спробуйте ще раз.');
     } finally {
       clearTimeout(timeout);
@@ -127,12 +151,6 @@ export default function ProductScreen() {
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-          <Text style={{ fontSize: 11, color: 'red', fontFamily: 'JetBrainsMono-Regular', textAlign: 'center', marginBottom: 16 }}>
-            slug: "{slug}" | type: {typeof slug}
-          </Text>
-          <Text style={{ fontSize: 11, color: 'red', fontFamily: 'JetBrainsMono-Regular', textAlign: 'center', marginBottom: 8 }}>
-            error: {debugError || 'product is null'}
-          </Text>
           <ErrorState fullScreen onRetry={() => { setError(null); setIsLoading(true); loadProduct(); }} />
         </View>
       </SafeAreaView>

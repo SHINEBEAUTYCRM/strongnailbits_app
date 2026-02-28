@@ -128,23 +128,27 @@ export const ProductCard = memo(function ProductCard({
         )}
       </View>
 
-      <View style={styles.info}>
-        {product.brands?.name && (
-          <View style={styles.brandBadge}>
-            <Text style={styles.brandText}>{product.brands.name}</Text>
-          </View>
-        )}
+      <View style={[styles.info, { minHeight: 140 }]}>
+        <View style={{ minHeight: 20 }}>
+          {product.brands?.name && (
+            <View style={styles.brandBadge}>
+              <Text style={styles.brandText}>{product.brands.name}</Text>
+            </View>
+          )}
+        </View>
 
         <Text style={styles.name} numberOfLines={2}>
           {name}
         </Text>
 
-        {!isOutOfStock && (
-          <View style={styles.stockRow}>
-            <View style={styles.stockDot} />
-            <Text style={styles.stockText}>В наявності</Text>
-          </View>
-        )}
+        <View style={{ minHeight: 18 }}>
+          {!isOutOfStock && (
+            <View style={styles.stockRow}>
+              <View style={styles.stockDot} />
+              <Text style={styles.stockText}>В наявності</Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.priceRow}>
           <Text style={styles.price}>{formatPrice(product.price)}</Text>
@@ -233,8 +237,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter-Medium',
     color: colors.dark,
-    lineHeight: 17,
-    minHeight: 34,
+    lineHeight: 18,
+    minHeight: 36,
   },
   priceRow: {
     flexDirection: 'row',

@@ -73,6 +73,9 @@ function RootLayout() {
                 headerShown: false,
                 contentStyle: { backgroundColor: colors.pearl },
                 animation: 'slide_from_right',
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+                fullScreenGestureEnabled: true,
               }}
             >
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
