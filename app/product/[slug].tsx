@@ -59,7 +59,7 @@ export default function ProductScreen() {
         images, main_image_url, weight, properties,
         is_new, is_featured, created_at, updated_at,
         category_id, categories(id, slug, name_uk, name_ru),
-        brand_id, brands!left(id, name, slug, logo_url)
+        brand_id, brands(id, name, slug, logo_url)
       `;
 
       let { data, error: queryError } = await supabase
@@ -121,7 +121,7 @@ export default function ProductScreen() {
           .select('price')
           .eq('profile_id', user.id)
           .eq('product_id', prod.id)
-          .single();
+          .maybeSingle();
         if (bp) setB2bPrice(bp.price);
       }
     } catch (error: any) {
