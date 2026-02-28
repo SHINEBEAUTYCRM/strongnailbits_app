@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import { ArrowLeft, Heart, Share2, Copy } from 'lucide-react-native';
+import { ArrowLeft, Heart, Share2, Copy, AlertCircle, RefreshCw } from 'lucide-react-native';
 import { colors, fontSizes, borderRadius, spacing, shadows } from '@/theme';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -51,83 +51,72 @@ export default function ProductScreen() {
   async function loadProduct() {
     setIsLoading(true);
     setLoadError(null);
+    setProduct(null);
 
     try {
-      const PRODUCT_QUERY = `
-        id, slug, name_uk, name_ru, sku, description_uk, description_ru,
-        price, old_price, wholesale_price, quantity, status,
-        images, main_image_url, weight, properties,
-        is_new, is_featured, created_at, updated_at,
-        category_id, categories(id, slug, name_uk, name_ru),
-        brand_id, brands(id, name, slug, logo_url)
-      `;
-
-      let { data, error: queryError } = await supabase
+      const { data, error: queryError } = await supabase
         .from('products')
-        .select(PRODUCT_QUERY)
+        .select(`
+          id, slug, name_uk, name_ru, sku, description_uk, description_ru,
+          price, old_price, wholesale_price, quantity, status,
+          images, main_image_url, weight, properties,
+          is_new, is_featured, created_at, updated_at,
+          category_id, categories(id, slug, name_uk, name_ru),
+          brand_id
+        `)
         .eq('slug', slug)
         .maybeSingle();
 
       if (queryError) {
-        setLoadError(`Query error: ${queryError.message} (${queryError.code})`);
+        setLoadError(`Query: ${queryError.message} [${queryError.code}]`);
         return;
       }
 
-      if (!data && (slug!.endsWith('-uk') || slug!.endsWith('-ru'))) {
-        const cleanSlug = slug!.replace(/-(uk|ru)$/, '');
-        const fallback = await supabase
-          .from('products')
-          .select(PRODUCT_QUERY)
-          .eq('slug', cleanSlug)
-          .maybeSingle();
-        data = fallback.data;
-      }
-
       if (!data) {
-        const basePart = slug!.replace(/-(uk|ru)$/, '');
-        const fallback2 = await supabase
-          .from('products')
-          .select(PRODUCT_QUERY)
-          .ilike('slug', `${basePart}%`)
-          .eq('status', 'active')
-          .limit(1)
-          .maybeSingle();
-        data = fallback2.data;
-      }
-
-      if (!data) {
-        setLoadError(`No product found for slug: ${slug}`);
+        setLoadError(`Товар не знайдено: "${slug}"`);
         return;
       }
 
-      const prod = data as unknown as Product;
+      let brandData = null;
+      if (data.brand_id) {
+        const { data: brand } = await supabase
+          .from('brands')
+          .select('id, name, slug, logo_url')
+          .eq('id', data.brand_id)
+          .maybeSingle();
+        brandData = brand;
+      }
+
+      const prod = { ...data, brands: brandData } as unknown as Product;
       setProduct(prod);
       trackViewItem(prod.id, prod.name_uk);
 
       if (prod.category_id) {
-        const { data: rel } = await supabase
-          .from('products')
-          .select('id, slug, name_uk, name_ru, price, old_price, main_image_url, quantity, status, is_new, is_featured')
-          .eq('category_id', prod.category_id)
-          .neq('id', prod.id)
-          .eq('status', 'active')
-          .limit(10);
-        setRelated((rel ?? []) as ProductListItem[]);
+        try {
+          const { data: rel } = await supabase
+            .from('products')
+            .select('id, slug, name_uk, name_ru, price, old_price, main_image_url, quantity, status, is_new, is_featured')
+            .eq('category_id', prod.category_id)
+            .neq('id', prod.id)
+            .eq('status', 'active')
+            .limit(10);
+          setRelated((rel ?? []) as ProductListItem[]);
+        } catch {}
       }
 
       if (user) {
-        const { data: bp } = await supabase
-          .from('customer_prices')
-          .select('price')
-          .eq('profile_id', user.id)
-          .eq('product_id', prod.id)
-          .maybeSingle();
-        if (bp) setB2bPrice(bp.price);
+        try {
+          const { data: bp } = await supabase
+            .from('customer_prices')
+            .select('price')
+            .eq('profile_id', user.id)
+            .eq('product_id', prod.id)
+            .maybeSingle();
+          if (bp) setB2bPrice(bp.price);
+        } catch {}
       }
     } catch (error: any) {
-      const msg = error?.message || error?.code || JSON.stringify(error);
-      console.error('Failed to load product:', msg);
-      setLoadError(`Exception: ${msg}`);
+      setLoadError(`Exception: ${error?.message || JSON.stringify(error)}`);
     } finally {
       setIsLoading(false);
     }
@@ -137,14 +126,15 @@ export default function ProductScreen() {
 
   if (!product) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.pearl }} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <ArrowLeft size={24} color={colors.dark} />
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-          <Text style={{ color: '#ef4444', fontSize: 14, textAlign: 'center', marginBottom: 12, fontFamily: 'Inter-Medium' }}>
+          <AlertCircle size={40} color="#ef4444" />
+          <Text style={{ color: '#ef4444', fontSize: 14, textAlign: 'center', marginTop: 12, marginBottom: 8, fontFamily: 'Inter-Medium' }}>
             {loadError || 'Товар не знайдено'}
           </Text>
           <Text style={{ color: '#999', fontSize: 12, textAlign: 'center', marginBottom: 20, fontFamily: 'Inter-Regular' }}>
@@ -152,9 +142,10 @@ export default function ProductScreen() {
           </Text>
           <TouchableOpacity
             onPress={() => loadProduct()}
-            style={{ borderWidth: 1, borderColor: '#ef4444', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: colors.coral, borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 }}
           >
-            <Text style={{ color: '#ef4444', fontFamily: 'Inter-Medium' }}>Спробувати ще</Text>
+            <RefreshCw size={16} color={colors.coral} />
+            <Text style={{ color: colors.coral, fontFamily: 'Inter-Medium' }}>Спробувати ще</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
