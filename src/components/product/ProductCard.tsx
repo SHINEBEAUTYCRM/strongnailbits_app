@@ -86,7 +86,7 @@ export const ProductCard = memo(function ProductCard({
         <Image
           source={{ uri: product.main_image_url ?? undefined }}
           style={styles.image}
-          contentFit="cover"
+          contentFit="contain"
           transition={200}
           placeholder={require('../../../assets/images/icon.png')}
         />
@@ -96,6 +96,18 @@ export const ProductCard = memo(function ProductCard({
             <Text style={styles.discountText}>{discount}</Text>
           </View>
         ) : null}
+
+        {!discount && product.is_new && (
+          <View style={[styles.discountBadge, { backgroundColor: '#22c55e' }]}>
+            <Text style={styles.discountText}>NEW</Text>
+          </View>
+        )}
+
+        {!discount && !product.is_new && product.is_featured && (
+          <View style={[styles.discountBadge, { backgroundColor: '#c27400' }]}>
+            <Text style={styles.discountText}>HIT</Text>
+          </View>
+        )}
 
         <TouchableOpacity
           style={styles.wishlistButton}
@@ -117,9 +129,22 @@ export const ProductCard = memo(function ProductCard({
       </View>
 
       <View style={styles.info}>
+        {product.brands?.name && (
+          <View style={styles.brandBadge}>
+            <Text style={styles.brandText}>{product.brands.name}</Text>
+          </View>
+        )}
+
         <Text style={styles.name} numberOfLines={2}>
           {name}
         </Text>
+
+        {!isOutOfStock && (
+          <View style={styles.stockRow}>
+            <View style={styles.stockDot} />
+            <Text style={styles.stockText}>В наявності</Text>
+          </View>
+        )}
 
         <View style={styles.priceRow}>
           <Text style={styles.price}>{formatPrice(product.price)}</Text>
@@ -158,6 +183,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     position: 'relative',
+    backgroundColor: '#f5f5f7',
   },
   image: {
     width: '100%',
@@ -244,5 +270,38 @@ const styles = StyleSheet.create({
   },
   cartButtonTextDisabled: {
     color: colors.darkTertiary,
+  },
+  brandBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(214, 38, 74, 0.06)',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginBottom: 4,
+  },
+  brandText: {
+    fontSize: 10,
+    fontFamily: 'Inter-SemiBold',
+    color: colors.coral,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  stockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  stockDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22c55e',
+  },
+  stockText: {
+    fontSize: 11,
+    fontFamily: 'Inter-Regular',
+    color: '#22c55e',
   },
 });
