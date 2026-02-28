@@ -65,15 +65,19 @@ export default function ProductScreen() {
         images, main_image_url, weight, properties,
         is_new, is_featured, created_at, updated_at,
         category_id, categories(id, slug, name_uk, name_ru),
-        brand_id, brands(id, name, slug, logo_url)
+        brand_id, brands!left(id, name, slug, logo_url)
       `;
 
       // Try exact slug first
-      let { data } = await supabase
+      let { data, error: queryError } = await supabase
         .from('products')
         .select(PRODUCT_QUERY)
         .eq('slug', slug)
-        .single();
+        .maybeSingle();
+
+      if (queryError) {
+        console.error('Product query error:', queryError.message, queryError.code);
+      }
 
       // Fallback: strip -uk / -ru suffix
       if (!data && (slug.endsWith('-uk') || slug.endsWith('-ru'))) {
@@ -82,7 +86,7 @@ export default function ProductScreen() {
           .from('products')
           .select(PRODUCT_QUERY)
           .eq('slug', cleanSlug)
-          .single();
+          .maybeSingle();
         data = fallback.data;
       }
 
@@ -95,7 +99,7 @@ export default function ProductScreen() {
           .ilike('slug', `${basePart}%`)
           .eq('status', 'active')
           .limit(1)
-          .single();
+          .maybeSingle();
         data = fallback2.data;
       }
 

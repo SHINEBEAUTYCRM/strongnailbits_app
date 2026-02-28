@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -13,7 +13,9 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 
-type Step = 'phone' | 'otp' | 'otp_password' | 'password';
+const API_BASE = 'https://shineshopb2b.com';
+
+type Step = 'phone' | 'telegram_waiting' | 'otp' | 'otp_password' | 'password';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -30,6 +32,124 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
+  // Telegram auth state
+  const [tgToken, setTgToken] = useState<string | null>(null);
+  const [tgStatus, setTgStatus] = useState<'sent' | 'need_link' | 'register' | null>(null);
+  const [tgBotUrl, setTgBotUrl] = useState<string | null>(null);
+  const [tgCountdown, setTgCountdown] = useState(300);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (step !== 'telegram_waiting') return;
+    if (tgCountdown <= 0) {
+      stopPolling();
+      showToast(language === 'ru' ? 'Время вышло' : 'Час вийшов', 'error');
+      setStep('phone');
+      return;
+    }
+    const timer = setInterval(() => setTgCountdown(c => c - 1), 1000);
+    return () => clearInterval(timer);
+  }, [step, tgCountdown]);
+
+  function stopPolling() {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }
+
+  // ─── Telegram Login ───
+  const handleTelegramLogin = async () => {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 10) {
+      showToast(language === 'ru' ? 'Введите корректный номер' : 'Введіть коректний номер', 'error');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/telegram-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: digits }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Помилка');
+
+      setTgToken(data.token);
+      setTgStatus(data.status);
+      if (data.botUrl) setTgBotUrl(data.botUrl);
+      setTgCountdown(300);
+      setStep('telegram_waiting');
+
+      startPolling(data.token);
+
+      const url = data.botUrl || 'https://t.me/shineshop_b2b_bot';
+      setTimeout(() => Linking.openURL(url), 500);
+
+    } catch (err: any) {
+      showToast(err.message || 'Помилка', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  function startPolling(token: string) {
+    stopPolling();
+    pollingRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/telegram-check?token=${token}`);
+        const data = await res.json();
+        if (data.status === 'confirmed') {
+          stopPolling();
+          await completeTelegramLogin(token);
+        } else if (data.status === 'expired' || data.status === 'denied') {
+          stopPolling();
+          showToast(language === 'ru' ? 'Вход отклонён' : 'Вхід відхилено', 'error');
+          setStep('phone');
+        }
+      } catch {}
+    }, 3000);
+  }
+
+  async function completeTelegramLogin(token: string) {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/telegram-confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Помилка');
+
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        token_hash: data.token_hash,
+        type: 'magiclink',
+      });
+      if (otpError) throw new Error('Помилка автоматичного входу');
+
+      await initialize();
+      if (data.isNewUser) {
+        router.replace('/(tabs)/account');
+        showToast(language === 'ru' ? 'Заполните профиль' : 'Заповніть профіль', 'info');
+      } else {
+        router.replace('/(tabs)/account');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Помилка входу', 'error');
+      setStep('phone');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // ─── SMS OTP ───
   const handleSendOtp = async () => {
     if (phone.replace(/\D/g, '').length < 12) {
       showToast(language === 'ru' ? 'Введите корректный номер' : 'Введіть коректний номер', 'error');
@@ -61,7 +181,6 @@ export default function LoginScreen() {
       if (error) throw error;
 
       if (data?.existingUser && data?.loginEmail) {
-        // OTP verified — now ask for password to complete sign-in
         setLoginEmail(data.loginEmail);
         setStep('otp_password');
         showToast(
@@ -94,7 +213,6 @@ export default function LoginScreen() {
         password,
       });
       if (error) throw error;
-
       await initialize();
       router.replace('/(tabs)/account');
     } catch {
@@ -110,18 +228,15 @@ export default function LoginScreen() {
       const { data: authData } = await supabase.functions.invoke('phone-auth', {
         body: { phone: phone.replace(/\D/g, ''), action: 'get-login-email' },
       });
-
       if (!authData?.loginEmail) {
         showToast(language === 'ru' ? 'Пользователь не найден' : 'Користувача не знайдено', 'error');
         return;
       }
-
       const { error } = await supabase.auth.signInWithPassword({
         email: authData.loginEmail,
         password,
       });
       if (error) throw error;
-
       await initialize();
       router.replace('/(tabs)/account');
     } catch {
@@ -144,10 +259,20 @@ export default function LoginScreen() {
     }, 1000);
   };
 
+  const tgMinutes = Math.floor(tgCountdown / 60);
+  const tgSeconds = tgCountdown % 60;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => {
+          if (step === 'telegram_waiting') {
+            stopPolling();
+            setStep('phone');
+          } else {
+            router.back();
+          }
+        }}>
           <ArrowLeft size={24} color={colors.dark} />
         </TouchableOpacity>
       </View>
@@ -157,9 +282,11 @@ export default function LoginScreen() {
           {language === 'ru' ? 'Вход' : 'Вхід'}
         </Text>
 
+        {/* ── Phone Step ── */}
         {step === 'phone' && (
           <>
             <PhoneInput value={phone} onChangeText={setPhone} />
+
             {usePassword ? (
               <>
                 <Input
@@ -176,18 +303,32 @@ export default function LoginScreen() {
                 />
                 <TouchableOpacity onPress={() => setUsePassword(false)}>
                   <Text style={styles.link}>
-                    {language === 'ru' ? 'Войти по SMS' : 'Увійти по SMS'}
+                    {language === 'ru' ? 'Другие способы входа' : 'Інші способи входу'}
                   </Text>
                 </TouchableOpacity>
               </>
             ) : (
               <>
                 <Button
-                  title={language === 'ru' ? 'Получить код' : 'Отримати код'}
-                  onPress={handleSendOtp}
+                  title={language === 'ru' ? 'Войти через Telegram' : 'Увійти через Telegram'}
+                  onPress={handleTelegramLogin}
                   loading={isLoading}
                   fullWidth
                 />
+
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={handleSendOtp}
+                  disabled={isLoading || phone.replace(/\D/g, '').length < 10}
+                >
+                  <Text style={[
+                    styles.secondaryButtonText,
+                    (isLoading || phone.replace(/\D/g, '').length < 10) && { opacity: 0.5 }
+                  ]}>
+                    {language === 'ru' ? 'Получить SMS-код' : 'Отримати SMS-код'}
+                  </Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity onPress={() => setUsePassword(true)}>
                   <Text style={styles.link}>
                     {language === 'ru' ? 'Войти с паролем' : 'Увійти з паролем'}
@@ -198,6 +339,59 @@ export default function LoginScreen() {
           </>
         )}
 
+        {/* ── Telegram Waiting Step ── */}
+        {step === 'telegram_waiting' && (
+          <View style={styles.telegramWaiting}>
+            <View style={styles.tgIconContainer}>
+              <ActivityIndicator size="small" color="#26A5E4" style={styles.tgSpinner} />
+              <Text style={styles.tgIcon}>✈️</Text>
+            </View>
+
+            <Text style={styles.tgTitle}>
+              {tgStatus === 'register'
+                ? (language === 'ru' ? 'Регистрация через Telegram' : 'Реєстрація через Telegram')
+                : tgStatus === 'need_link'
+                  ? (language === 'ru' ? 'Подключите Telegram' : 'Підключіть Telegram')
+                  : (language === 'ru' ? 'Проверьте Telegram' : 'Перевірте Telegram')
+              }
+            </Text>
+
+            <Text style={styles.tgSubtitle}>
+              {tgStatus === 'register'
+                ? (language === 'ru' ? 'Откройте бот и отправьте номер' : 'Відкрийте бот та надішліть номер')
+                : tgStatus === 'need_link'
+                  ? (language === 'ru' ? 'Откройте бот и подтвердите' : 'Відкрийте бот та підтвердіть')
+                  : (language === 'ru' ? 'Нажмите «Подтвердить» в боте' : 'Натисніть «Підтвердити» в боті')
+              }
+            </Text>
+
+            <View style={styles.tgTimer}>
+              <Text style={[styles.tgTimerText, tgCountdown < 60 && { color: '#ef4444' }]}>
+                {tgMinutes}:{tgSeconds.toString().padStart(2, '0')}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.tgOpenButton}
+              onPress={() => {
+                const url = tgBotUrl || 'https://t.me/shineshop_b2b_bot';
+                Linking.openURL(url);
+              }}
+            >
+              <Text style={styles.tgOpenButtonText}>
+                {language === 'ru' ? 'Открыть Telegram' : 'Відкрити Telegram'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => { stopPolling(); setStep('phone'); }}>
+              <Text style={styles.link}>
+                {language === 'ru' ? 'Ввести другой номер' : 'Ввести інший номер'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ── OTP Step ── */}
         {step === 'otp' && (
           <>
             <Text style={styles.subtitle}>
@@ -225,6 +419,7 @@ export default function LoginScreen() {
           </>
         )}
 
+        {/* ── OTP Password Step ── */}
         {step === 'otp_password' && (
           <>
             <Text style={styles.subtitle}>
@@ -246,11 +441,13 @@ export default function LoginScreen() {
         )}
 
         {/* Register link */}
-        <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-          <Text style={styles.registerLink}>
-            {language === 'ru' ? 'Нет аккаунта? Зарегистрироваться' : 'Немає акаунту? Зареєструватися'}
-          </Text>
-        </TouchableOpacity>
+        {step !== 'telegram_waiting' && (
+          <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+            <Text style={styles.registerLink}>
+              {language === 'ru' ? 'Нет аккаунта? Зарегистрироваться' : 'Немає акаунту? Зареєструватися'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -302,5 +499,75 @@ const styles = StyleSheet.create({
     color: colors.violet,
     textAlign: 'center',
     marginTop: spacing['2xl'],
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    borderRadius: 999,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Inter-SemiBold',
+    color: colors.darkSecondary,
+  },
+  telegramWaiting: {
+    alignItems: 'center',
+    gap: spacing.lg,
+    paddingTop: spacing.xl,
+  },
+  tgIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(38, 165, 228, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tgSpinner: {
+    position: 'absolute',
+  },
+  tgIcon: {
+    fontSize: 32,
+  },
+  tgTitle: {
+    fontSize: fontSizes.xl,
+    fontFamily: 'Unbounded-Bold',
+    color: colors.dark,
+    textAlign: 'center',
+  },
+  tgSubtitle: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Inter-Regular',
+    color: colors.darkSecondary,
+    textAlign: 'center',
+  },
+  tgTimer: {
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#fafafa',
+  },
+  tgTimerText: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Inter-Medium',
+    color: colors.darkSecondary,
+  },
+  tgOpenButton: {
+    backgroundColor: '#26A5E4',
+    borderRadius: 999,
+    height: 48,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tgOpenButtonText: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Inter-Bold',
+    color: '#ffffff',
   },
 });

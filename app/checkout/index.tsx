@@ -73,7 +73,7 @@ export default function CheckoutScreen() {
   function validate(): boolean {
     if (!contact.phone || !contact.firstName || !contact.lastName) {
       showToast(
-        language === 'ru' ? 'Заполните контактные данные' : 'Заповніть контактні дані',
+        language === 'ru' ? 'Заполните имя, фамилию и телефон' : "Заповніть ім'я, прізвище та телефон",
         'error'
       );
       return false;
@@ -128,7 +128,12 @@ export default function CheckoutScreen() {
             quantity: item.quantity,
             image: item.image,
           })),
-          contact,
+          contact: {
+            phone: contact.phone.replace(/[\s\-()]/g, ''),
+            firstName: contact.firstName.trim(),
+            lastName: contact.lastName.trim(),
+            email: contact.email.trim(),
+          },
           shipping: {
             method: shipping.method,
             city: shipping.city,
@@ -153,17 +158,22 @@ export default function CheckoutScreen() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Edge Function помилка');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       trackPurchase(data.orderNumber, total);
       clearCart();
       router.replace(`/checkout/success?orderNumber=${data.orderNumber}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Order failed:', err);
-      showToast(
-        language === 'ru' ? 'Ошибка оформления заказа' : 'Помилка оформлення замовлення',
-        'error'
-      );
+      const msg = err?.message || err?.error || JSON.stringify(err);
+      showToast(`Помилка: ${msg}`, 'error');
     } finally {
       setSubmitting(false);
     }

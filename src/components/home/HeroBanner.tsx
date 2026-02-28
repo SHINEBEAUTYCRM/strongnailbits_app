@@ -5,6 +5,7 @@ import {
   Dimensions,
   TouchableOpacity,
   StyleSheet,
+  Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -16,12 +17,40 @@ const BANNER_HEIGHT = BANNER_WIDTH * 0.45;
 
 interface Banner {
   id: string;
-  image_url?: string;
-  image_mobile_url?: string;
-  image_desktop?: string;
+  image_desktop: string;
   image_mobile?: string;
-  link?: string;
   button_url?: string;
+}
+
+function webUrlToAppRoute(url: string): string | null {
+  if (!url) return null;
+  try {
+    let path = url;
+    if (url.startsWith('http')) {
+      const parsed = new URL(url);
+      path = parsed.pathname;
+    }
+    path = path.replace(/\/$/, '');
+
+    if (path.startsWith('/catalog/')) {
+      const slug = path.replace('/catalog/', '');
+      return `/(tabs)/catalog/${slug}`;
+    }
+    if (path.startsWith('/product/')) {
+      const slug = path.replace('/product/', '');
+      return `/product/${slug}`;
+    }
+    if (path.startsWith('/brands/')) {
+      const slug = path.replace('/brands/', '');
+      return `/brands?brand=${slug}`;
+    }
+    if (path === '/catalog') {
+      return '/(tabs)/catalog';
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 interface HeroBannerProps {
@@ -66,12 +95,18 @@ export function HeroBanner({ banners }: HeroBannerProps) {
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={() => {
-              const url = item.button_url || item.link;
-              if (url) router.push(url as never);
+              if (item.button_url) {
+                const appRoute = webUrlToAppRoute(item.button_url);
+                if (appRoute) {
+                  router.push(appRoute as never);
+                } else {
+                  Linking.openURL(item.button_url);
+                }
+              }
             }}
           >
             <Image
-              source={{ uri: item.image_mobile ?? item.image_mobile_url ?? item.image_desktop ?? item.image_url }}
+              source={{ uri: item.image_mobile ?? item.image_desktop }}
               style={styles.banner}
               contentFit="cover"
               transition={300}
