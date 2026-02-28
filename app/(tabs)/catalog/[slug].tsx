@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, SlidersHorizontal, ArrowUpDown, X } from 'lucide-react-native';
@@ -87,6 +88,29 @@ export default function CategoryProductsScreen() {
     ? tField(currentCategory.name_uk, currentCategory.name_ru)
     : slug;
 
+  const currentInTree = useMemo(() => {
+    function findInTree(nodes: any[], targetSlug: string): any {
+      for (const node of nodes) {
+        if (node.slug === targetSlug) return node;
+        if (node.children?.length) {
+          const found = findInTree(node.children, targetSlug);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+    return slug ? findInTree(tree, slug as string) : null;
+  }, [tree, slug]);
+
+  const subcategories = (currentInTree?.children || []).filter(
+    (c: any) => c.product_count > 0
+  );
+
+  const parentCategory = useMemo(() => {
+    if (!currentCategory?.parent_cs_cart_id) return null;
+    return categories.find((c: any) => c.cs_cart_id === currentCategory.parent_cs_cart_id) || null;
+  }, [currentCategory, categories]);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {/* Header */}
@@ -99,6 +123,19 @@ export default function CategoryProductsScreen() {
         </Text>
         <View style={{ width: 24 }} />
       </View>
+
+      {/* Breadcrumb */}
+      {parentCategory && (
+        <TouchableOpacity
+          style={styles.breadcrumb}
+          onPress={() => router.push(`/(tabs)/catalog/${parentCategory.slug}`)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.breadcrumbText}>
+            ← {parentCategory.name_uk}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Toolbar */}
       <View style={styles.toolbar}>
@@ -120,6 +157,41 @@ export default function CategoryProductsScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Subcategories */}
+      {subcategories.length > 0 && (
+        <View style={styles.subcatsWrap}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.subcatsScroll}
+          >
+            {subcategories.map((sub: any) => (
+              <TouchableOpacity
+                key={sub.id}
+                style={styles.subcatChip}
+                onPress={() => router.push(`/(tabs)/catalog/${sub.slug}`)}
+                activeOpacity={0.7}
+              >
+                {sub.image_url && (
+                  <Image
+                    source={{ uri: sub.image_url }}
+                    style={styles.subcatImage}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                )}
+                <Text style={styles.subcatName} numberOfLines={1}>
+                  {sub.name_uk}
+                </Text>
+                {sub.product_count > 0 && (
+                  <Text style={styles.subcatCount}>{sub.product_count}</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Products Grid */}
       <ProductGrid
@@ -259,5 +331,57 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.border,
+  },
+  breadcrumb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  breadcrumbText: {
+    fontSize: 13,
+    fontFamily: 'Inter-Medium',
+    color: colors.coral,
+  },
+  subcatsWrap: {
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingVertical: 10,
+  },
+  subcatsScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+    flexDirection: 'row',
+  },
+  subcatChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    backgroundColor: colors.white,
+  },
+  subcatImage: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  subcatName: {
+    fontSize: 12,
+    fontFamily: 'Inter-Medium',
+    color: colors.dark,
+    maxWidth: 100,
+  },
+  subcatCount: {
+    fontSize: 10,
+    fontFamily: 'Inter-Regular',
+    color: colors.darkTertiary,
   },
 });
