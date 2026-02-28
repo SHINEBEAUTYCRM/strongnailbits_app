@@ -61,7 +61,7 @@ export default function ProductScreen() {
           price, old_price, wholesale_price, quantity, status,
           images, main_image_url, weight, properties,
           is_new, is_featured, created_at, updated_at,
-          category_id, categories(id, slug, name_uk, name_ru),
+          category_id, categories!products_category_id_fkey(id, slug, name_uk, name_ru),
           brand_id
         `)
         .eq('slug', slug)
