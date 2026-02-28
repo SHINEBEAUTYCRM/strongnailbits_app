@@ -18,7 +18,6 @@ import { QuantitySelector } from '@/components/ui/QuantitySelector';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
-import { ErrorState } from '@/components/ui/ErrorState';
 import { formatPrice, formatDiscount } from '@/utils/format';
 import { trackViewItem, trackAddToCart } from '@/lib/analytics/tracker';
 import type { Product, ProductListItem } from '@/types/product';
@@ -38,12 +37,11 @@ export default function ProductScreen() {
   const [b2bPrice, setB2bPrice] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!slug) {
-      setError('Товар не знайдено');
+      setLoadError('No slug provided');
       setIsLoading(false);
       return;
     }
@@ -52,12 +50,7 @@ export default function ProductScreen() {
 
   async function loadProduct() {
     setIsLoading(true);
-    setError(null);
-
-    const timeout = setTimeout(() => {
-      setIsLoading(false);
-      setError('Завантаження тривало занадто довго. Спробуйте ще раз.');
-    }, 10000);
+    setLoadError(null);
 
     try {
       const PRODUCT_QUERY = `
@@ -69,7 +62,6 @@ export default function ProductScreen() {
         brand_id, brands!left(id, name, slug, logo_url)
       `;
 
-      // Try exact slug first
       let { data, error: queryError } = await supabase
         .from('products')
         .select(PRODUCT_QUERY)
@@ -77,13 +69,12 @@ export default function ProductScreen() {
         .maybeSingle();
 
       if (queryError) {
-        console.error('Product query error:', queryError.message, queryError.code);
-        setLoadError(`Query: ${queryError.message} (${queryError.code})`);
+        setLoadError(`Query error: ${queryError.message} (${queryError.code})`);
+        return;
       }
 
-      // Fallback: strip -uk / -ru suffix
-      if (!data && (slug.endsWith('-uk') || slug.endsWith('-ru'))) {
-        const cleanSlug = slug.replace(/-(uk|ru)$/, '');
+      if (!data && (slug!.endsWith('-uk') || slug!.endsWith('-ru'))) {
+        const cleanSlug = slug!.replace(/-(uk|ru)$/, '');
         const fallback = await supabase
           .from('products')
           .select(PRODUCT_QUERY)
@@ -92,9 +83,8 @@ export default function ProductScreen() {
         data = fallback.data;
       }
 
-      // Fallback 2: partial match
       if (!data) {
-        const basePart = slug.replace(/-(uk|ru)$/, '');
+        const basePart = slug!.replace(/-(uk|ru)$/, '');
         const fallback2 = await supabase
           .from('products')
           .select(PRODUCT_QUERY)
@@ -105,10 +95,8 @@ export default function ProductScreen() {
         data = fallback2.data;
       }
 
-      clearTimeout(timeout);
-
       if (!data) {
-        setError('Товар не знайдено');
+        setLoadError(`No product found for slug: ${slug}`);
         return;
       }
 
@@ -137,13 +125,10 @@ export default function ProductScreen() {
         if (bp) setB2bPrice(bp.price);
       }
     } catch (error: any) {
-      clearTimeout(timeout);
       const msg = error?.message || error?.code || JSON.stringify(error);
       console.error('Failed to load product:', msg);
-      setLoadError(msg);
-      setError('Не вдалося завантажити товар. Спробуйте ще раз.');
+      setLoadError(`Exception: ${msg}`);
     } finally {
-      clearTimeout(timeout);
       setIsLoading(false);
     }
   }
@@ -158,13 +143,19 @@ export default function ProductScreen() {
             <ArrowLeft size={24} color={colors.dark} />
           </TouchableOpacity>
         </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <Text style={{ color: 'red', fontSize: 14, textAlign: 'center', marginBottom: 10 }}>
-            {loadError || 'product is null'}
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Text style={{ color: '#ef4444', fontSize: 14, textAlign: 'center', marginBottom: 12, fontFamily: 'Inter-Medium' }}>
+            {loadError || 'Товар не знайдено'}
           </Text>
-          <Text style={{ color: '#666', fontSize: 12, textAlign: 'center' }}>
-            slug: {slug}
+          <Text style={{ color: '#999', fontSize: 12, textAlign: 'center', marginBottom: 20, fontFamily: 'Inter-Regular' }}>
+            slug: {JSON.stringify(slug)}
           </Text>
+          <TouchableOpacity
+            onPress={() => loadProduct()}
+            style={{ borderWidth: 1, borderColor: '#ef4444', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 }}
+          >
+            <Text style={{ color: '#ef4444', fontFamily: 'Inter-Medium' }}>Спробувати ще</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );

@@ -118,7 +118,7 @@ export default function CheckoutScreen() {
 
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-order', {
+      const response = await supabase.functions.invoke('create-order', {
         body: {
           items: items.map((item) => ({
             product_id: item.product_id,
@@ -158,14 +158,22 @@ export default function CheckoutScreen() {
         },
       });
 
-      if (error) {
-        console.error('Edge function error:', error);
-        throw new Error(error.message || 'Edge Function помилка');
+      console.log('create-order response:', JSON.stringify(response));
+
+      if (response.error) {
+        const realError = response.data?.error || response.error?.message || 'Невідома помилка';
+        throw new Error(realError);
       }
 
-      if (data?.error) {
-        throw new Error(data.error);
+      if (!response.data) {
+        throw new Error('Порожня відповідь від сервера');
       }
+
+      if (response.data.error) {
+        throw new Error(response.data.error);
+      }
+
+      const data = response.data;
 
       trackPurchase(data.orderNumber, total);
       clearCart();
