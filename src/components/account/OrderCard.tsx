@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Copy } from 'lucide-react-native';
+import { Copy, ChevronRight } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { colors, fontSizes, borderRadius, spacing, shadows } from '@/theme';
@@ -14,6 +15,7 @@ interface OrderCardProps {
 }
 
 export function OrderCard({ order }: OrderCardProps) {
+  const router = useRouter();
   const { showToast } = useToast();
 
   const copyTTN = async () => {
@@ -24,10 +26,17 @@ export function OrderCard({ order }: OrderCardProps) {
   };
 
   return (
-    <View style={[styles.card, shadows.sm]}>
+    <TouchableOpacity
+      style={[styles.card, shadows.sm]}
+      activeOpacity={0.7}
+      onPress={() => router.push(`/(tabs)/account/order/${order.id}` as never)}
+    >
       <View style={styles.header}>
         <Text style={styles.orderNumber}>#{order.order_number}</Text>
-        <StatusBadge status={order.status} />
+        <View style={styles.headerRight}>
+          <StatusBadge status={order.status} />
+          <ChevronRight size={18} color={colors.darkTertiary} />
+        </View>
       </View>
 
       <View style={styles.details}>
@@ -52,7 +61,7 @@ export function OrderCard({ order }: OrderCardProps) {
           <Copy size={14} color={colors.coral} />
         </TouchableOpacity>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -67,6 +76,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   orderNumber: {
     fontSize: fontSizes.lg,

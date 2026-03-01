@@ -1,14 +1,15 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Input } from '@/components/ui/Input';
 import { useLanguage } from '@/hooks/useLanguage';
-import { spacing } from '@/theme';
+import { spacing, fontSizes, colors } from '@/theme';
 
 interface ProfileData {
   firstName: string;
   lastName: string;
   phone: string;
   company: string;
+  email: string;
 }
 
 interface ProfileFormProps {
@@ -36,6 +37,20 @@ export function ProfileForm({ data, onChange }: ProfileFormProps) {
         value={data.phone}
         editable={false}
       />
+      <View>
+        <Input
+          label="Email"
+          value={data.email}
+          onChangeText={(email) => onChange({ ...data, email })}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        <Text style={styles.hint}>
+          {language === 'ru'
+            ? 'Для получения чеков и уведомлений'
+            : 'Для отримання чеків та повідомлень'}
+        </Text>
+      </View>
       <Input
         label={language === 'ru' ? 'Компания' : 'Компанія'}
         value={data.company}
@@ -48,5 +63,12 @@ export function ProfileForm({ data, onChange }: ProfileFormProps) {
 const styles = StyleSheet.create({
   container: {
     gap: spacing.md,
+  },
+  hint: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Inter-Regular',
+    color: colors.darkTertiary,
+    marginTop: 4,
+    paddingHorizontal: 4,
   },
 });

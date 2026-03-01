@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, View, Text, TouchableOpacity, Switch, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   FileText,
   Gift,
   File,
+  Heart,
   ChevronRight,
-  LogOut,
+  Trash2,
+  Phone,
 } from 'lucide-react-native';
 import { colors, fontSizes, borderRadius, spacing, shadows } from '@/theme';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,23 +22,65 @@ import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
 import { useToast } from '@/components/ui/Toast';
+import { NPCitySearch } from '@/components/checkout/NPCitySearch';
+import { NPWarehouseSelect } from '@/components/checkout/NPWarehouseSelect';
+import { Input } from '@/components/ui/Input';
 
 export default function AccountScreen() {
   const router = useRouter();
   const { user, profile, isLoading, isAuthenticated, isB2B } = useAuth();
   const { language } = useLanguage();
   const signOut = useAuthStore((s) => s.signOut);
+  const fetchProfile = useAuthStore((s) => s.fetchProfile);
   const pushEnabled = useSettingsStore((s) => s.pushEnabled);
   const setPushEnabled = useSettingsStore((s) => s.setPushEnabled);
   const { showToast } = useToast();
 
   const [profileData, setProfileData] = useState({
-    firstName: profile?.first_name ?? '',
-    lastName: profile?.last_name ?? '',
-    phone: profile?.phone ?? '',
-    company: profile?.company ?? '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+    company: '',
+    email: '',
   });
+  const [delivery, setDelivery] = useState({
+    city: '',
+    cityRef: '',
+    warehouse: '',
+    warehouseRef: '',
+    address: '',
+  });
+  const [ordersCount, setOrdersCount] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      const meta = (profile as any).metadata ?? {};
+      setProfileData({
+        firstName: profile.first_name ?? '',
+        lastName: profile.last_name ?? '',
+        phone: profile.phone ?? '',
+        company: profile.company ?? '',
+        email: profile.email ?? '',
+      });
+      setDelivery({
+        city: meta.default_city ?? '',
+        cityRef: meta.default_city_ref ?? '',
+        warehouse: meta.default_warehouse ?? '',
+        warehouseRef: meta.default_warehouse_ref ?? '',
+        address: meta.default_address ?? '',
+      });
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('profile_id', user.id)
+      .then(({ count }) => setOrdersCount(count ?? 0));
+  }, [user]);
 
   if (isLoading) return <Loading fullScreen />;
 
@@ -72,14 +116,25 @@ export default function AccountScreen() {
     if (!user) return;
     setSaving(true);
     try {
+      const existingMeta = (profile as any)?.metadata ?? {};
       await supabase
         .from('profiles')
         .update({
           first_name: profileData.firstName,
           last_name: profileData.lastName,
+          email: profileData.email,
           company: profileData.company,
+          metadata: {
+            ...existingMeta,
+            default_city: delivery.city,
+            default_city_ref: delivery.cityRef,
+            default_warehouse: delivery.warehouse,
+            default_warehouse_ref: delivery.warehouseRef,
+            default_address: delivery.address,
+          },
         })
         .eq('id', user.id);
+      await fetchProfile();
       showToast(language === 'ru' ? 'Профиль сохранён' : 'Профіль збережено', 'success');
     } catch {
       showToast(language === 'ru' ? 'Ошибка сохранения' : 'Помилка збереження', 'error');
@@ -88,79 +143,138 @@ export default function AccountScreen() {
     }
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      language === 'ru' ? 'Удалить аккаунт?' : 'Видалити акаунт?',
+      language === 'ru'
+        ? 'Все данные будут удалены. Это действие нельзя отменить.'
+        : 'Всі дані буде видалено. Цю дію не можна скасувати.',
+      [
+        { text: language === 'ru' ? 'Отмена' : 'Скасувати', style: 'cancel' },
+        {
+          text: language === 'ru' ? 'Удалить' : 'Видалити',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            showToast(language === 'ru' ? 'Аккаунт удалён' : 'Акаунт видалено', 'info');
+          },
+        },
+      ]
+    );
+  };
+
   const menuItems = [
     {
       icon: <FileText size={22} color={colors.violet} />,
-      title: language === 'ru' ? 'Мои заказы' : 'Мої замовлення',
+      title: language === 'ru' ? 'Замовлення' : 'Замовлення',
+      subtitle: ordersCount > 0 ? `${ordersCount}` : undefined,
       route: '/(tabs)/account/orders',
     },
     {
       icon: <Gift size={22} color={colors.coral} />,
-      title: language === 'ru' ? 'Бонусы' : 'Бонуси',
+      title: language === 'ru' ? 'Бонуси' : 'Бонуси',
+      subtitle: `${profile?.loyalty_points ?? 0} балів`,
       route: '/(tabs)/account/bonuses',
     },
     {
       icon: <File size={22} color={colors.amber} />,
-      title: language === 'ru' ? 'Документы' : 'Документи',
+      title: language === 'ru' ? 'Документи' : 'Документи',
+      subtitle: language === 'ru' ? 'Накладные из 1С' : 'Накладні з 1С',
       route: '/(tabs)/account/documents',
+    },
+    {
+      icon: <Heart size={22} color={colors.coral} />,
+      title: language === 'ru' ? 'Обране' : 'Обране',
+      subtitle: language === 'ru' ? 'Список желаний' : 'Список бажань',
+      route: '/(tabs)/wishlist',
     },
   ];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Name */}
-        <Text style={styles.name}>
-          {profile?.first_name} {profile?.last_name}
-        </Text>
-
-        {/* B2B Info */}
-        {isB2B && (
-          <View style={[styles.b2bCard, shadows.sm]}>
-            <View style={styles.b2bRow}>
-              <Text style={styles.b2bLabel}>Бонуси</Text>
-              <Text style={styles.b2bValue}>
-                {profile?.loyalty_points ?? 0} балів ({profile?.loyalty_tier})
-              </Text>
+        {/* Profile Header */}
+        <View style={styles.headerCard}>
+          <Text style={styles.name}>
+            {profile?.first_name} {profile?.last_name}
+          </Text>
+          {profile?.phone && (
+            <View style={styles.phoneRow}>
+              <Phone size={14} color={colors.darkTertiary} />
+              <Text style={styles.phoneText}>{profile.phone}</Text>
             </View>
-            {profile?.discount_percent ? (
-              <View style={styles.b2bRow}>
-                <Text style={styles.b2bLabel}>Знижка</Text>
-                <Text style={styles.b2bValue}>{profile.discount_percent}%</Text>
-              </View>
-            ) : null}
-          </View>
-        )}
+          )}
+          {isB2B && profile?.discount_percent ? (
+            <View style={styles.b2bBadge}>
+              <Text style={styles.b2bBadgeText}>B2B • Знижка {profile.discount_percent}%</Text>
+            </View>
+          ) : null}
+        </View>
 
         {/* Quick Links */}
         <View style={styles.menuContainer}>
           {menuItems.map((item, index) => (
             <TouchableOpacity
               key={index}
-              style={styles.menuItem}
+              style={[styles.menuItem, index === menuItems.length - 1 && { borderBottomWidth: 0 }]}
               onPress={() => router.push(item.route as never)}
             >
               {item.icon}
-              <Text style={styles.menuItemTitle}>{item.title}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.menuItemTitle}>{item.title}</Text>
+                {item.subtitle && (
+                  <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
+                )}
+              </View>
               <ChevronRight size={20} color={colors.darkTertiary} />
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Profile Form */}
+        {/* Personal Data */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            {language === 'ru' ? 'Профиль' : 'Профіль'}
+            {language === 'ru' ? 'Личные данные' : 'Особисті дані'}
           </Text>
           <ProfileForm data={profileData} onChange={setProfileData} />
-          <Button
-            title={language === 'ru' ? 'Сохранить' : 'Зберегти'}
-            onPress={handleSaveProfile}
-            loading={saving}
-            fullWidth
-            variant="secondary"
+        </View>
+
+        {/* Delivery */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {language === 'ru' ? 'Доставка' : 'Доставка'}
+          </Text>
+          <NPCitySearch
+            value={delivery.city}
+            cityRef={delivery.cityRef}
+            onSelect={({ ref, name }) =>
+              setDelivery((d) => ({ ...d, city: name, cityRef: ref, warehouse: '', warehouseRef: '' }))
+            }
+            onClear={() => setDelivery((d) => ({ ...d, city: '', cityRef: '', warehouse: '', warehouseRef: '' }))}
+          />
+          <NPWarehouseSelect
+            cityName={delivery.city}
+            value={delivery.warehouse}
+            onSelect={({ ref, name }) =>
+              setDelivery((d) => ({ ...d, warehouse: name, warehouseRef: ref }))
+            }
+            onClear={() => setDelivery((d) => ({ ...d, warehouse: '', warehouseRef: '' }))}
+          />
+          <Input
+            label={language === 'ru' ? 'Адрес доставки' : 'Адреса доставки'}
+            value={delivery.address}
+            onChangeText={(address) => setDelivery((d) => ({ ...d, address }))}
+            placeholder={language === 'ru' ? 'Для курьерской доставки' : 'Для адресної доставки кур\'єром'}
           />
         </View>
+
+        {/* Save Button */}
+        <Button
+          title={language === 'ru' ? 'Сохранить' : 'Зберегти'}
+          onPress={handleSaveProfile}
+          loading={saving}
+          fullWidth
+        />
 
         {/* Settings */}
         <View style={styles.section}>
@@ -193,6 +307,14 @@ export default function AccountScreen() {
           variant="danger"
           fullWidth
         />
+
+        {/* Delete Account */}
+        <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteButton}>
+          <Trash2 size={16} color={colors.darkTertiary} />
+          <Text style={styles.deleteText}>
+            {language === 'ru' ? 'Удалить аккаунт' : 'Видалити акаунт'}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -227,30 +349,40 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
     paddingBottom: spacing['4xl'],
   },
+  headerCard: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    gap: spacing.sm,
+    ...shadows.sm,
+  },
   name: {
     fontSize: fontSizes['2xl'],
     fontFamily: 'Unbounded-Bold',
     color: colors.dark,
   },
-  b2bCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  b2bRow: {
+  phoneRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
-  b2bLabel: {
+  phoneText: {
     fontSize: fontSizes.sm,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'JetBrainsMono-Regular',
     color: colors.darkSecondary,
   },
-  b2bValue: {
-    fontSize: fontSizes.sm,
+  b2bBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.violet + '15',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.pill,
+    marginTop: spacing.xs,
+  },
+  b2bBadgeText: {
+    fontSize: fontSizes.xs,
     fontFamily: 'Inter-SemiBold',
-    color: colors.dark,
+    color: colors.violet,
   },
   menuContainer: {
     backgroundColor: colors.white,
@@ -266,10 +398,15 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderLight,
   },
   menuItemTitle: {
-    flex: 1,
     fontSize: fontSizes.md,
     fontFamily: 'Inter-Medium',
     color: colors.dark,
+  },
+  menuItemSubtitle: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Inter-Regular',
+    color: colors.darkTertiary,
+    marginTop: 2,
   },
   section: {
     gap: spacing.md,
@@ -291,5 +428,17 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     fontFamily: 'Inter-Medium',
     color: colors.dark,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  deleteText: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Inter-Regular',
+    color: colors.darkTertiary,
   },
 });
