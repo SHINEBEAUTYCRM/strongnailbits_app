@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, TextInput, Platform } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, TextInput, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -118,6 +118,14 @@ export default function CheckoutScreen() {
 
     setSubmitting(true);
     try {
+      Alert.alert('DEBUG', JSON.stringify({
+        url: supabase.supabaseUrl,
+        itemsCount: items.length,
+        shipping: shipping.method,
+        payment: paymentMethod,
+        hasPhone: !!contact.phone,
+      }));
+
       const response = await supabase.functions.invoke('create-order', {
         body: {
           items: items.map((item) => ({
@@ -159,6 +167,12 @@ export default function CheckoutScreen() {
       });
 
       console.log('create-order response:', JSON.stringify(response));
+
+      Alert.alert('RESPONSE', JSON.stringify({
+        data: response.data,
+        error: response.error?.message,
+        errorContext: typeof response.error?.context,
+      }));
 
       if (response.error) {
         const realError = response.data?.error || response.error?.message || 'Невідома помилка';
