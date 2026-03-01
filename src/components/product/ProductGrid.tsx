@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { ProductCard } from './ProductCard';
-import { Loading } from '@/components/ui/Loading';
+import { SkeletonGrid } from '@/components/ui/Skeleton';
 import { colors, spacing } from '@/theme';
 import type { ProductListItem } from '@/types/product';
 
@@ -28,7 +28,11 @@ export function ProductGrid({
   ListEmptyComponent,
 }: ProductGridProps) {
   if (isLoading) {
-    return <Loading fullScreen />;
+    return (
+      <View style={styles.skeletonContainer}>
+        <SkeletonGrid count={6} />
+      </View>
+    );
   }
 
   return (
@@ -36,9 +40,9 @@ export function ProductGrid({
       data={products}
       numColumns={2}
       estimatedItemSize={320}
-      renderItem={({ item }) => (
+      renderItem={({ item, index }) => (
         <View style={styles.cardWrapper}>
-          <ProductCard product={item} />
+          <ProductCard product={item} index={index} />
         </View>
       )}
       keyExtractor={(item) => item.id}
@@ -61,6 +65,11 @@ export function ProductGrid({
 }
 
 const styles = StyleSheet.create({
+  skeletonContainer: {
+    flex: 1,
+    paddingTop: spacing.lg,
+    backgroundColor: colors.pearl,
+  },
   container: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing['3xl'],

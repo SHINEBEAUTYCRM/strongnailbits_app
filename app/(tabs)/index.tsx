@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, StyleSheet, TouchableOpacity, Text, RefreshControl } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  useAnimatedScrollHandler,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, ShoppingCart } from 'lucide-react-native';
@@ -12,12 +19,14 @@ import { QuickCategories } from '@/components/home/QuickCategories';
 import { ProductSection } from '@/components/home/ProductSection';
 import { Features } from '@/components/home/Features';
 import { B2BCta } from '@/components/home/B2BCta';
-import { Loading } from '@/components/ui/Loading';
+import { SkeletonBanner, SkeletonSection } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { CategoryBlockCard } from '@/components/home/CategoryBlockCard';
 import { PromoStrip } from '@/components/home/PromoStrip';
 import { DealOfDaySection } from '@/components/home/DealOfDaySection';
 import type { ProductListItem, Category } from '@/types/product';
+
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 interface CategoryBlockChild {
   id: string;
@@ -174,7 +183,53 @@ export default function HomeScreen() {
     }
   }
 
-  if (isLoading) return <Loading fullScreen />;
+  // Glass header scroll tracking
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    backgroundColor: `rgba(255, 255, 255, ${interpolate(
+      scrollY.value,
+      [0, 30],
+      [1, 0.85],
+      Extrapolation.CLAMP,
+    )})`,
+    borderBottomWidth: interpolate(
+      scrollY.value,
+      [0, 10],
+      [0, 0.5],
+      Extrapolation.CLAMP,
+    ),
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+    shadowOpacity: interpolate(
+      scrollY.value,
+      [0, 20],
+      [0, 0.08],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={styles.logoShine}>SHINE </Text>
+            <Text style={styles.logoShop}>SHOP</Text>
+          </View>
+        </View>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+          <SkeletonBanner />
+          <SkeletonSection />
+          <SkeletonSection />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   if (error) {
     return (
@@ -193,8 +248,8 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Glass Header */}
+      <Animated.View style={[styles.header, styles.headerShadow, headerAnimatedStyle]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Text style={styles.logoShine}>SHINE </Text>
           <Text style={styles.logoShop}>SHOP</Text>
@@ -221,12 +276,14 @@ export default function HomeScreen() {
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
 
-      <ScrollView
+      <AnimatedScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.coral]} tintColor={colors.coral} />
         }
@@ -280,7 +337,7 @@ export default function HomeScreen() {
 
         {/* B2B CTA */}
         <B2BCta />
-      </ScrollView>
+      </AnimatedScrollView>
     </SafeAreaView>
   );
 }
@@ -297,6 +354,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     backgroundColor: colors.white,
+    zIndex: 10,
+  },
+  headerShadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 4,
   },
   logoShine: {
     fontSize: 20,
@@ -306,7 +370,7 @@ const styles = StyleSheet.create({
   logoShop: {
     fontSize: 20,
     fontFamily: 'Unbounded-Bold',
-    color: '#E11D48',
+    color: '#D6264A',
   },
   headerActions: {
     flexDirection: 'row',

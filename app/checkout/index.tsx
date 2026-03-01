@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ScrollView, View, Text, StyleSheet, TextInput, Platform } from 'react-native';
+import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -13,10 +14,13 @@ import { ContactForm } from '@/components/checkout/ContactForm';
 import { ShippingForm } from '@/components/checkout/ShippingForm';
 import { PaymentForm } from '@/components/checkout/PaymentForm';
 import { OrderSummary } from '@/components/checkout/OrderSummary';
+import { CheckoutProgress } from '@/components/checkout/CheckoutProgress';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { trackBeginCheckout, trackPurchase } from '@/lib/analytics/tracker';
 import type { ShippingData } from '@/components/checkout/ShippingForm';
+
+const TOTAL_STEPS = 3;
 
 export default function CheckoutScreen() {
   const router = useRouter();
@@ -27,6 +31,8 @@ export default function CheckoutScreen() {
   const clearCart = useCartStore((s) => s.clearCart);
   const { showToast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const [step, setStep] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
 
   const [contact, setContact] = useState({
     phone: profile?.phone ?? '',
@@ -63,62 +69,84 @@ export default function CheckoutScreen() {
     trackBeginCheckout(total);
   }, []);
 
-  // При переключении на международную доставку — сбросить cod
   React.useEffect(() => {
     if (isInternational && paymentMethod === 'cod') {
       setPaymentMethod('invoice');
     }
   }, [isInternational]);
 
-  function validate(): boolean {
-    if (!contact.phone || !contact.firstName || !contact.lastName) {
-      showToast(
-        language === 'ru' ? 'Заполните имя, фамилию и телефон' : "Заповніть ім'я, прізвище та телефон",
-        'error'
-      );
-      return false;
+  function validateStep(s: number): boolean {
+    if (s === 0) {
+      if (!contact.phone || !contact.firstName || !contact.lastName) {
+        showToast(
+          language === 'ru' ? 'Заполните имя, фамилию и телефон' : "Заповніть ім'я, прізвище та телефон",
+          'error'
+        );
+        return false;
+      }
     }
-
-    const m = shipping.method;
-
-    if (m === 'np_warehouse' && (!shipping.city || !shipping.warehouse)) {
-      showToast(
-        language === 'ru' ? 'Выберите город и отделение' : 'Оберіть місто та відділення',
-        'error'
-      );
-      return false;
+    if (s === 1) {
+      const m = shipping.method;
+      if (m === 'np_warehouse' && (!shipping.city || !shipping.warehouse)) {
+        showToast(
+          language === 'ru' ? 'Выберите город и отделение' : 'Оберіть місто та відділення',
+          'error'
+        );
+        return false;
+      }
+      if (m === 'np_address' && (!shipping.city || !shipping.street || !shipping.house)) {
+        showToast(
+          language === 'ru' ? 'Заполните адрес доставки' : 'Заповніть адресу доставки',
+          'error'
+        );
+        return false;
+      }
+      if ((m === 'np_intl' || m === 'ukrposhta_intl') && (!shipping.country || !shipping.intlCity || !shipping.intlAddress)) {
+        showToast(
+          language === 'ru' ? 'Заполните международный адрес' : 'Заповніть міжнародну адресу',
+          'error'
+        );
+        return false;
+      }
     }
-    if (m === 'np_address' && (!shipping.city || !shipping.street || !shipping.house)) {
-      showToast(
-        language === 'ru' ? 'Заполните адрес доставки' : 'Заповніть адресу доставки',
-        'error'
-      );
-      return false;
+    if (s === 2) {
+      if (paymentMethod === 'invoice' && (!companyName || !edrpou)) {
+        showToast(
+          language === 'ru' ? 'Заполните данные компании' : 'Заповніть дані компанії',
+          'error'
+        );
+        return false;
+      }
     }
-    if ((m === 'np_intl' || m === 'ukrposhta_intl') && (!shipping.country || !shipping.intlCity || !shipping.intlAddress)) {
-      showToast(
-        language === 'ru' ? 'Заполните международный адрес' : 'Заповніть міжнародну адресу',
-        'error'
-      );
-      return false;
-    }
-    if (paymentMethod === 'invoice' && (!companyName || !edrpou)) {
-      showToast(
-        language === 'ru' ? 'Заполните данные компании' : 'Заповніть дані компанії',
-        'error'
-      );
-      return false;
-    }
-
     return true;
   }
 
+  function goNext() {
+    if (!validateStep(step)) return;
+    if (step < TOTAL_STEPS - 1) {
+      setStep(step + 1);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }
+  }
+
+  function goBack() {
+    if (step > 0) {
+      setStep(step - 1);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    } else {
+      router.back();
+    }
+  }
+
+  const stepTitles = language === 'ru'
+    ? ['Контактные данные', 'Доставка', 'Оплата']
+    : ['Контактні дані', 'Доставка', 'Оплата'];
+
   const handleSubmit = async () => {
-    if (!validate()) return;
+    if (!validateStep(2)) return;
 
     setSubmitting(true);
     try {
-      // Refresh session to avoid 401 Invalid JWT
       await supabase.auth.refreshSession();
 
       const response = await supabase.functions.invoke('create-order', {
@@ -179,7 +207,6 @@ export default function CheckoutScreen() {
       trackPurchase(data.orderNumber, total);
       clearCart();
 
-      // Also clear cart in Supabase so it doesn't reload old items on next sync
       if (profile?.id) {
         supabase.from('carts').delete().eq('profile_id', profile.id).then(() => {});
       }
@@ -196,64 +223,90 @@ export default function CheckoutScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={goBack}>
           <ArrowLeft size={24} color={colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.title}>
-          {language === 'ru' ? 'Оформление заказа' : 'Оформлення замовлення'}
-        </Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.title}>{stepTitles[step]}</Text>
+        <Text style={styles.stepCounter}>{step + 1}/{TOTAL_STEPS}</Text>
       </View>
 
+      {/* Progress */}
+      <CheckoutProgress currentStep={step} totalSteps={TOTAL_STEPS} />
+
+      {/* Step Content */}
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <ContactForm data={contact} onChange={setContact} />
+        {step === 0 && (
+          <Animated.View entering={FadeInRight.duration(300)} exiting={FadeOutLeft.duration(200)}>
+            <ContactForm data={contact} onChange={setContact} />
+          </Animated.View>
+        )}
 
-        <ShippingForm data={shipping} onChange={setShipping} />
+        {step === 1 && (
+          <Animated.View entering={FadeInRight.duration(300)} exiting={FadeOutLeft.duration(200)}>
+            <ShippingForm data={shipping} onChange={setShipping} />
+          </Animated.View>
+        )}
 
-        <PaymentForm
-          method={paymentMethod}
-          onChange={setPaymentMethod}
-          isInternational={isInternational}
-          companyName={companyName}
-          edrpou={edrpou}
-          onCompanyChange={({ companyName: cn, edrpou: ed }) => {
-            setCompanyName(cn);
-            setEdrpou(ed);
-          }}
-        />
+        {step === 2 && (
+          <Animated.View entering={FadeInRight.duration(300)} exiting={FadeOutLeft.duration(200)}>
+            <PaymentForm
+              method={paymentMethod}
+              onChange={setPaymentMethod}
+              isInternational={isInternational}
+              companyName={companyName}
+              edrpou={edrpou}
+              onCompanyChange={({ companyName: cn, edrpou: ed }) => {
+                setCompanyName(cn);
+                setEdrpou(ed);
+              }}
+            />
 
-        {/* Notes */}
-        <View style={styles.notesSection}>
-          <Text style={styles.notesLabel}>
-            {language === 'ru' ? 'Комментарий к заказу' : 'Коментар до замовлення'}
-          </Text>
-          <TextInput
-            style={styles.notesInput}
-            value={notes}
-            onChangeText={setNotes}
-            multiline
-            numberOfLines={3}
-            placeholder={language === 'ru' ? 'Ваш комментарий...' : 'Ваш коментар...'}
-            placeholderTextColor={colors.darkTertiary}
-          />
-        </View>
+            {/* Notes */}
+            <View style={styles.notesSection}>
+              <Text style={styles.notesLabel}>
+                {language === 'ru' ? 'Комментарий к заказу' : 'Коментар до замовлення'}
+              </Text>
+              <TextInput
+                style={styles.notesInput}
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={3}
+                placeholder={language === 'ru' ? 'Ваш комментарий...' : 'Ваш коментар...'}
+                placeholderTextColor={colors.darkTertiary}
+              />
+            </View>
 
-        <OrderSummary />
+            <OrderSummary />
+          </Animated.View>
+        )}
       </ScrollView>
 
+      {/* Footer */}
       <View style={styles.footer}>
-        <Button
-          title={language === 'ru' ? 'Подтвердить заказ' : 'Підтвердити замовлення'}
-          onPress={handleSubmit}
-          loading={submitting}
-          fullWidth
-          size="lg"
-        />
+        {step < TOTAL_STEPS - 1 ? (
+          <Button
+            title={language === 'ru' ? 'Продолжить' : 'Продовжити'}
+            onPress={goNext}
+            fullWidth
+            size="lg"
+          />
+        ) : (
+          <Button
+            title={language === 'ru' ? 'Подтвердить заказ' : 'Підтвердити замовлення'}
+            onPress={handleSubmit}
+            loading={submitting}
+            fullWidth
+            size="lg"
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -279,6 +332,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Medium',
     color: colors.dark,
   },
+  stepCounter: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Inter-Medium',
+    color: colors.darkTertiary,
+  },
   content: {
     padding: spacing.lg,
     gap: spacing['2xl'],
@@ -286,6 +344,7 @@ const styles = StyleSheet.create({
   },
   notesSection: {
     gap: spacing.sm,
+    marginTop: spacing['2xl'],
   },
   notesLabel: {
     fontSize: fontSizes.lg,

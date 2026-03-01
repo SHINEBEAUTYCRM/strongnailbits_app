@@ -18,6 +18,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
 import { supabase } from '@/lib/supabase/client';
 import { ProfileForm } from '@/components/account/ProfileForm';
+import { DashboardMetrics } from '@/components/account/DashboardMetrics';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
@@ -51,6 +52,7 @@ export default function AccountScreen() {
     address: '',
   });
   const [ordersCount, setOrdersCount] = useState(0);
+  const [totalSpent, setTotalSpent] = useState(0);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -75,11 +77,21 @@ export default function AccountScreen() {
 
   useEffect(() => {
     if (!user) return;
+    // Orders count
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('profile_id', user.id)
       .then(({ count }) => setOrdersCount(count ?? 0));
+    // Total spent
+    supabase
+      .from('orders')
+      .select('total')
+      .eq('profile_id', user.id)
+      .then(({ data }) => {
+        const sum = (data ?? []).reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+        setTotalSpent(Math.round(sum));
+      });
   }, [user]);
 
   if (isLoading) return <Loading fullScreen />;
@@ -210,6 +222,14 @@ export default function AccountScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* Dashboard Metrics */}
+        <DashboardMetrics
+          ordersCount={ordersCount}
+          totalSpent={totalSpent}
+          bonusPoints={profile?.loyalty_points ?? 0}
+          balance={Number((profile as any)?.balance ?? 0)}
+        />
 
         {/* Quick Links */}
         <View style={styles.menuContainer}>

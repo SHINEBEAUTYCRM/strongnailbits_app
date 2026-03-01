@@ -1,8 +1,19 @@
-import React, { memo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import React, { memo, useCallback, useState } from 'react';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import Animated, {
+  FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withSequence,
+  withTiming,
+  withRepeat,
+  Easing,
+} from 'react-native-reanimated';
+import { Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { Heart } from 'lucide-react-native';
+import { Heart, Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { colors, spacing, shadows } from '@/theme';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -17,14 +28,18 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const GRID_CARD_WIDTH = (SCREEN_WIDTH - spacing.lg * 3) / 2;
 const COMPACT_CARD_WIDTH = 160;
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 interface ProductCardProps {
   product: ProductListItem;
   compact?: boolean;
+  index?: number;
 }
 
 export const ProductCard = memo(function ProductCard({
   product,
   compact,
+  index = 0,
 }: ProductCardProps) {
   const router = useRouter();
   const { tField } = useLanguage();
@@ -33,6 +48,8 @@ export const ProductCard = memo(function ProductCard({
   const hasInWishlist = useWishlistStore((s) => s.hasItem(product.id));
   const { showToast } = useToast();
 
+  const [addedToCart, setAddedToCart] = useState(false);
+
   const name = tField(product.name_uk, product.name_ru);
   const isOutOfStock = product.quantity <= 0;
   const discount = product.old_price
@@ -40,12 +57,56 @@ export const ProductCard = memo(function ProductCard({
     : '';
   const cardWidth = compact ? COMPACT_CARD_WIDTH : GRID_CARD_WIDTH;
 
+  // Card press scale
+  const cardScale = useSharedValue(1);
+  const cardAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }],
+  }));
+
+  // Wishlist heart scale
+  const heartScale = useSharedValue(1);
+  const heartAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: heartScale.value }],
+  }));
+
+  // Cart button color transition
+  const cartButtonBg = useAnimatedStyle(() => ({
+    backgroundColor: addedToCart ? colors.green : colors.coral,
+  }));
+
+  // Discount badge pulse
+  const badgeScale = useSharedValue(1);
+  React.useEffect(() => {
+    if (discount) {
+      badgeScale.value = withRepeat(
+        withSequence(
+          withTiming(1.06, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        true,
+      );
+    }
+  }, [discount]);
+
+  const badgeAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: badgeScale.value }],
+  }));
+
   const handlePress = useCallback(() => {
     router.push(`/product/${product.slug}`);
   }, [product.slug]);
 
+  const handlePressIn = useCallback(() => {
+    cardScale.value = withSpring(0.97, { damping: 15, stiffness: 200 });
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    cardScale.value = withSpring(1, { damping: 15, stiffness: 200 });
+  }, []);
+
   const handleAddToCart = useCallback(() => {
-    if (isOutOfStock) return;
+    if (isOutOfStock || addedToCart) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     addToCart({
       product_id: product.id,
@@ -61,10 +122,17 @@ export const ProductCard = memo(function ProductCard({
     });
     trackAddToCart(product.id, name, product.price);
     showToast('Додано в кошик', 'success');
-  }, [product, name, isOutOfStock]);
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 1500);
+  }, [product, name, isOutOfStock, addedToCart]);
 
   const handleToggleWishlist = useCallback(() => {
     Haptics.selectionAsync();
+    // Bounce heart
+    heartScale.value = withSequence(
+      withSpring(1.35, { damping: 8, stiffness: 300 }),
+      withSpring(1, { damping: 10, stiffness: 200 }),
+    );
     toggleWishlist({
       product_id: product.id,
       name,
@@ -77,10 +145,12 @@ export const ProductCard = memo(function ProductCard({
   }, [product, name]);
 
   return (
-    <TouchableOpacity
-      style={[styles.card, shadows.sm, { width: cardWidth }]}
+    <AnimatedPressable
+      entering={FadeInDown.delay(index * 60).duration(400).springify().damping(14)}
+      style={[styles.card, shadows.sm, { width: cardWidth }, cardAnimatedStyle]}
       onPress={handlePress}
-      activeOpacity={0.8}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
     >
       <View style={[styles.imageContainer, { width: cardWidth, height: cardWidth }]}>
         <Image
@@ -92,9 +162,9 @@ export const ProductCard = memo(function ProductCard({
         />
 
         {discount ? (
-          <View style={styles.discountBadge}>
+          <Animated.View style={[styles.discountBadge, badgeAnimatedStyle]}>
             <Text style={styles.discountText}>{discount}</Text>
-          </View>
+          </Animated.View>
         ) : null}
 
         {!discount && product.is_new && (
@@ -109,17 +179,19 @@ export const ProductCard = memo(function ProductCard({
           </View>
         )}
 
-        <TouchableOpacity
+        <Pressable
           style={styles.wishlistButton}
           onPress={handleToggleWishlist}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Heart
-            size={18}
-            color={hasInWishlist ? colors.coral : colors.darkTertiary}
-            fill={hasInWishlist ? colors.coral : 'transparent'}
-          />
-        </TouchableOpacity>
+          <Animated.View style={heartAnimatedStyle}>
+            <Heart
+              size={18}
+              color={hasInWishlist ? colors.coral : colors.darkTertiary}
+              fill={hasInWishlist ? colors.coral : 'transparent'}
+            />
+          </Animated.View>
+        </Pressable>
 
         {isOutOfStock && (
           <View style={styles.outOfStockOverlay}>
@@ -159,23 +231,33 @@ export const ProductCard = memo(function ProductCard({
           )}
         </View>
 
-        <TouchableOpacity
-          style={[styles.cartButton, isOutOfStock && styles.cartButtonDisabled]}
+        <Pressable
+          style={[
+            styles.cartButton,
+            isOutOfStock && styles.cartButtonDisabled,
+            addedToCart && styles.cartButtonSuccess,
+          ]}
           onPress={handleAddToCart}
           disabled={isOutOfStock}
-          activeOpacity={0.7}
         >
-          <Text
-            style={[
-              styles.cartButtonText,
-              isOutOfStock && styles.cartButtonTextDisabled,
-            ]}
-          >
-            {isOutOfStock ? 'Немає' : 'В кошик'}
-          </Text>
-        </TouchableOpacity>
+          {addedToCart ? (
+            <View style={styles.cartButtonRow}>
+              <Check size={14} color="#FFFFFF" />
+              <Text style={styles.cartButtonText}>Додано</Text>
+            </View>
+          ) : (
+            <Text
+              style={[
+                styles.cartButtonText,
+                isOutOfStock && styles.cartButtonTextDisabled,
+              ]}
+            >
+              {isOutOfStock ? 'Немає' : 'В кошик'}
+            </Text>
+          )}
+        </Pressable>
       </View>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 });
 
@@ -264,6 +346,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginTop: 4,
   },
+  cartButtonSuccess: {
+    backgroundColor: '#22c55e',
+  },
   cartButtonDisabled: {
     backgroundColor: colors.sand,
   },
@@ -274,6 +359,11 @@ const styles = StyleSheet.create({
   },
   cartButtonTextDisabled: {
     color: colors.darkTertiary,
+  },
+  cartButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   brandBadge: {
     alignSelf: 'flex-start',

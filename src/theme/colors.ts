@@ -1,4 +1,5 @@
-export const colors = {
+/* ── Light palette (default) ── */
+export const lightColors = {
   // Primary
   coral: '#D6264A',
   coral2: '#B8203F',
@@ -32,4 +33,42 @@ export const colors = {
   statusCancelled: '#E0352B',
 } as const;
 
-export type ColorKey = keyof typeof colors;
+/* ── Dark palette ── */
+export const darkColors: typeof lightColors = {
+  // Primary — brighter for dark backgrounds
+  coral: '#FF4D6D',
+  coral2: '#D6264A',
+  violet: '#A78BFA',
+
+  // Text — inverted
+  dark: '#F5F5F7',
+  darkSecondary: '#A1A1AA',
+  darkTertiary: '#71717A',
+
+  // Backgrounds
+  pearl: '#0A0A0A',
+  sand: '#1C1C1E',
+  white: '#1C1C1E',
+
+  // States — brighter for dark
+  green: '#4ADE80',
+  amber: '#FBBF24',
+  red: '#F87171',
+
+  // Additional
+  border: '#38383A',
+  borderLight: '#2C2C2E',
+  overlay: 'rgba(0,0,0,0.7)',
+
+  // Order status colors
+  statusNew: '#A78BFA',
+  statusProcessing: '#FBBF24',
+  statusShipped: '#60A5FA',
+  statusDelivered: '#4ADE80',
+  statusCancelled: '#F87171',
+} as const;
+
+// Default export for backward compatibility — points to light theme
+export const colors = lightColors;
+
+export type ColorKey = keyof typeof lightColors;
