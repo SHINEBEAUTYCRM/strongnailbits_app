@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, TextInput, Platform, Alert } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, TextInput, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -118,13 +118,8 @@ export default function CheckoutScreen() {
 
     setSubmitting(true);
     try {
-      Alert.alert('DEBUG', JSON.stringify({
-        url: supabase.supabaseUrl,
-        itemsCount: items.length,
-        shipping: shipping.method,
-        payment: paymentMethod,
-        hasPhone: !!contact.phone,
-      }));
+      // Refresh session to avoid 401 Invalid JWT
+      await supabase.auth.refreshSession();
 
       const response = await supabase.functions.invoke('create-order', {
         body: {
@@ -165,26 +160,6 @@ export default function CheckoutScreen() {
           platform: Platform.OS,
         },
       });
-
-      console.log('create-order response:', JSON.stringify(response));
-
-      try {
-        let contextBody = 'no context';
-        if (response.error?.context) {
-          if (typeof response.error.context.json === 'function') {
-            contextBody = JSON.stringify(await response.error.context.json());
-          } else {
-            contextBody = JSON.stringify(response.error.context);
-          }
-        }
-        Alert.alert('RESPONSE', JSON.stringify({
-          data: response.data,
-          error: response.error?.message,
-          contextBody,
-        }));
-      } catch (e) {
-        Alert.alert('RESPONSE ERROR', String(e));
-      }
 
       if (response.error) {
         const realError = response.data?.error || response.error?.message || 'Невідома помилка';
