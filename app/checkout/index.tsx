@@ -168,11 +168,23 @@ export default function CheckoutScreen() {
 
       console.log('create-order response:', JSON.stringify(response));
 
-      Alert.alert('RESPONSE', JSON.stringify({
-        data: response.data,
-        error: response.error?.message,
-        errorContext: typeof response.error?.context,
-      }));
+      try {
+        let contextBody = 'no context';
+        if (response.error?.context) {
+          if (typeof response.error.context.json === 'function') {
+            contextBody = JSON.stringify(await response.error.context.json());
+          } else {
+            contextBody = JSON.stringify(response.error.context);
+          }
+        }
+        Alert.alert('RESPONSE', JSON.stringify({
+          data: response.data,
+          error: response.error?.message,
+          contextBody,
+        }));
+      } catch (e) {
+        Alert.alert('RESPONSE ERROR', String(e));
+      }
 
       if (response.error) {
         const realError = response.data?.error || response.error?.message || 'Невідома помилка';
