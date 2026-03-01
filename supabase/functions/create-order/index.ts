@@ -59,6 +59,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
+    console.log('REQUEST BODY:', JSON.stringify(body));
     const { items, contact, shipping, payment, notes, platform } = body;
 
     // === VALIDATE items ===
@@ -146,8 +147,9 @@ serve(async (req) => {
         product_id: item.product_id,
         name: dbProduct.name_uk,
         sku: dbProduct.sku,
-        price: dbProduct.price, // FROM DB!
+        price: dbProduct.price,
         quantity: item.quantity,
+        total: dbProduct.price * item.quantity,
         image: item.image ?? null,
       });
     }
