@@ -178,6 +178,12 @@ export default function CheckoutScreen() {
 
       trackPurchase(data.orderNumber, total);
       clearCart();
+
+      // Also clear cart in Supabase so it doesn't reload old items on next sync
+      if (profile?.id) {
+        supabase.from('carts').delete().eq('profile_id', profile.id).then(() => {});
+      }
+
       router.replace(`/checkout/success?orderNumber=${data.orderNumber}`);
     } catch (err: any) {
       console.error('Order failed:', err);

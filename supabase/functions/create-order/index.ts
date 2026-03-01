@@ -89,7 +89,7 @@ serve(async (req) => {
 
     // === VALIDATE shipping & payment ===
     const VALID_SHIPPING = ['np_warehouse', 'np_address', 'np_intl', 'ukrposhta', 'ukrposhta_intl', 'pickup', 'nova_poshta', 'nova_poshta_courier', 'international'];
-    const VALID_PAYMENT = ['cod', 'invoice', 'online'];
+    const VALID_PAYMENT = ['cod', 'invoice', 'online', 'liqpay', 'mono'];
     if (!shipping?.method || !VALID_SHIPPING.includes(shipping.method)) {
       return new Response(JSON.stringify({ error: 'Невірний спосіб доставки' }), { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } });
     }
@@ -204,11 +204,37 @@ serve(async (req) => {
     }
 
     // === DECREASE STOCK ===
+    const stockErrors: string[] = [];
     for (const item of verifiedItems) {
-      await supabase.rpc('decrease_product_quantity', {
+      const { error: stockError } = await supabase.rpc('decrease_product_quantity', {
         p_product_id: item.product_id,
         p_quantity: item.quantity,
       });
+      if (stockError) {
+        console.error(`Stock decrease failed for ${item.product_id}:`, stockError.message);
+        stockErrors.push(`${item.name}: ${stockError.message}`);
+      }
+    }
+
+    // Notify admin if stock decrease failed (order already created)
+    if (stockErrors.length > 0) {
+      console.error('STOCK ERRORS (order created but stock not decreased):', stockErrors);
+      // Send Telegram alert to admin about stock issue
+      const telegramBotTokenStock = Deno.env.get('TELEGRAM_BOT_TOKEN');
+      const telegramChatIdStock = Deno.env.get('TELEGRAM_CHAT_ID');
+      if (telegramBotTokenStock && telegramChatIdStock) {
+        try {
+          await fetch(`https://api.telegram.org/bot${telegramBotTokenStock}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: telegramChatIdStock,
+              text: `⚠️ *Помилка оновлення залишків*\nЗамовлення #${orderNumber} створено, але залишки не оновлено:\n${stockErrors.join('\n')}`,
+              parse_mode: 'Markdown',
+            }),
+          });
+        } catch (_) { /* don't break */ }
+      }
     }
 
     // === TELEGRAM NOTIFICATION ===

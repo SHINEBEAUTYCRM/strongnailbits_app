@@ -8,8 +8,9 @@ export interface Order {
   shipping_cost: number;
   items: OrderItem[];
   contact: OrderContact;
-  shipping: OrderShipping;
-  payment_method: string;
+  shipping_method: ShippingMethod;
+  shipping_address: OrderShippingAddress;
+  payment_method: PaymentMethod;
   notes: string | null;
   ttn: string | null;
   source: 'web' | 'mobile' | 'api' | '1c';
@@ -26,7 +27,8 @@ export interface OrderItem {
   sku: string;
   price: number;
   quantity: number;
-  image: string;
+  total?: number;
+  image?: string | null;
 }
 
 export interface OrderContact {
@@ -36,12 +38,19 @@ export interface OrderContact {
   email?: string;
 }
 
-export interface OrderShipping {
-  method: ShippingMethod;
+export interface OrderShippingAddress {
   city?: string;
+  cityRef?: string;
   warehouse?: string;
+  warehouseRef?: string;
+  street?: string;
+  streetRef?: string;
+  house?: string;
   address?: string;
   country?: string;
+  intlCity?: string;
+  intlAddress?: string;
+  intlPostcode?: string;
 }
 
 export type ShippingMethod =

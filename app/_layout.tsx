@@ -16,6 +16,7 @@ import * as Font from 'expo-font';
 import { useAuthStore } from '@/stores/auth';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { useCartSync } from '@/hooks/useCartSync';
+import { useWishlistSync } from '@/hooks/useWishlistSync';
 import { ToastProvider, useToast } from '@/components/ui/Toast';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
@@ -99,6 +100,9 @@ function RootLayout() {
 
   // Sync cart with Supabase
   useCartSync();
+
+  // Sync wishlist with Supabase
+  useWishlistSync();
 
   if (!fontsLoaded) return null;
 
