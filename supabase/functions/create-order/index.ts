@@ -59,7 +59,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { items, contact, shipping, payment, notes } = body;
+    const { items, contact, shipping, payment, notes, platform } = body;
 
     // === VALIDATE items ===
     if (!Array.isArray(items) || items.length === 0 || items.length > 100) {
@@ -87,7 +87,7 @@ serve(async (req) => {
     }
 
     // === VALIDATE shipping & payment ===
-    const VALID_SHIPPING = ['nova_poshta', 'nova_poshta_courier', 'ukrposhta', 'pickup', 'international'];
+    const VALID_SHIPPING = ['np_warehouse', 'np_address', 'np_intl', 'ukrposhta', 'ukrposhta_intl', 'pickup', 'nova_poshta', 'nova_poshta_courier', 'international'];
     const VALID_PAYMENT = ['cod', 'invoice', 'online'];
     if (!shipping?.method || !VALID_SHIPPING.includes(shipping.method)) {
       return new Response(JSON.stringify({ error: 'Невірний спосіб доставки' }), { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } });
@@ -171,16 +171,35 @@ serve(async (req) => {
           lastName: contact.lastName.slice(0, 100),
           email: (contact.email ?? '').slice(0, 100),
         },
-        shipping,
+        shipping_method: shipping.method,
+        shipping_address: {
+          city: shipping.city ?? '',
+          cityRef: shipping.cityRef ?? '',
+          warehouse: shipping.warehouse ?? '',
+          warehouseRef: shipping.warehouseRef ?? '',
+          street: shipping.street ?? '',
+          house: shipping.house ?? '',
+          address: shipping.address ?? '',
+          country: shipping.country ?? '',
+          intlCity: shipping.intlCity ?? '',
+          intlAddress: shipping.intlAddress ?? '',
+          intlPostcode: shipping.intlPostcode ?? '',
+        },
         payment_method: payment.method,
         notes: sanitizedNotes,
         source: 'mobile',
-        source_device: body.platform ?? 'mobile',
+        source_device: platform ?? 'mobile',
       })
       .select()
       .single();
 
-    if (orderError) throw orderError;
+    if (orderError) {
+      console.error('Order insert error:', JSON.stringify(orderError));
+      return new Response(
+        JSON.stringify({ error: `DB: ${orderError.message} (${orderError.code})` }),
+        { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // === DECREASE STOCK ===
     for (const item of verifiedItems) {
