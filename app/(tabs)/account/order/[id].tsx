@@ -137,7 +137,7 @@ export default function OrderDetailScreen() {
   }
 
   const shippingLabel =
-    SHIPPING_LABELS[order.shipping?.method] ?? order.shipping?.method ?? '—';
+    SHIPPING_LABELS[order.shipping_method] ?? order.shipping_method ?? '—';
   const paymentLabel =
     PAYMENT_LABELS[order.payment_method] ?? order.payment_method ?? '—';
 
@@ -220,11 +220,11 @@ export default function OrderDetailScreen() {
                 {language === 'ru' ? 'Доставка' : 'Доставка'}
               </Text>
               <Text style={styles.infoValue}>{shippingLabel}</Text>
-              {order.shipping?.city && (
+              {order.shipping_address?.city && (
                 <Text style={styles.infoSub}>
-                  {order.shipping.city}
-                  {order.shipping.warehouse ? `, ${order.shipping.warehouse}` : ''}
-                  {order.shipping.address ? `, ${order.shipping.address}` : ''}
+                  {order.shipping_address.city}
+                  {order.shipping_address.warehouse ? `, ${order.shipping_address.warehouse}` : ''}
+                  {order.shipping_address.address ? `, ${order.shipping_address.address}` : ''}
                 </Text>
               )}
             </View>
