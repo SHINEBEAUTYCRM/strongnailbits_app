@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, fontSizes, spacing } from '@/theme';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useAuthStore } from '@/stores/auth';
@@ -63,6 +64,38 @@ export default function LoginScreen() {
       pollingRef.current = null;
     }
   }
+
+  // ─── Apple Sign-In ───
+  const handleAppleLogin = async () => {
+    setIsLoading(true);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('Apple не повернув токен');
+      }
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+
+      if (error) throw error;
+
+      await initialize();
+      router.replace('/(tabs)/account');
+    } catch (err: any) {
+      if (err.code === 'ERR_REQUEST_CANCELED') return;
+      showToast(err.message || 'Помилка входу через Apple', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // ─── Telegram Login ───
   const handleTelegramLogin = async () => {
@@ -334,6 +367,26 @@ export default function LoginScreen() {
                     {language === 'ru' ? 'Войти с паролем' : 'Увійти з паролем'}
                   </Text>
                 </TouchableOpacity>
+
+                {/* Apple Sign-In (iOS only) */}
+                {Platform.OS === 'ios' && (
+                  <>
+                    <View style={styles.divider}>
+                      <View style={styles.dividerLine} />
+                      <Text style={styles.dividerText}>
+                        {language === 'ru' ? 'или' : 'або'}
+                      </Text>
+                      <View style={styles.dividerLine} />
+                    </View>
+                    <AppleAuthentication.AppleAuthenticationButton
+                      buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                      buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                      cornerRadius={999}
+                      style={styles.appleButton}
+                      onPress={handleAppleLogin}
+                    />
+                  </>
+                )}
               </>
             )}
           </>
@@ -569,5 +622,25 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     fontFamily: 'Inter-Bold',
     color: '#ffffff',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e5e5',
+  },
+  dividerText: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Inter-Regular',
+    color: colors.darkTertiary,
+  },
+  appleButton: {
+    width: '100%',
+    height: 48,
   },
 });

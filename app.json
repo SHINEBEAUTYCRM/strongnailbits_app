@@ -18,8 +18,10 @@
       "supportsTablet": true,
       "buildNumber": "7",
       "associatedDomains": [
+        "applinks:shineshopb2b.com",
         "applinks:shineshopb2b.com"
       ],
+      "usesAppleSignIn": true,
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
         "CFBundleDevelopmentRegion": "uk",
@@ -54,6 +56,26 @@
             "BROWSABLE",
             "DEFAULT"
           ]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "shineshopb2b.com",
+              "pathPrefix": "/product"
+            },
+            {
+              "scheme": "https",
+              "host": "shineshopb2b.com",
+              "pathPrefix": "/catalog"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -61,6 +83,7 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
+      "expo-apple-authentication",
       [
         "@sentry/react-native/expo",
         {
@@ -76,6 +99,12 @@
         "projectId": "c186aa6a-d95a-4d5f-8b31-60eed7afb5e0"
       }
     },
-    "owner": "shineshopb2b"
+    "owner": "shineshopb2b",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c186aa6a-d95a-4d5f-8b31-60eed7afb5e0"
+    }
   }
 }
