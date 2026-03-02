@@ -136,6 +136,31 @@ export default function AccountScreen() {
           company: profileData.company,
       };
       if (profileData.phone && !profile?.phone) {
+        const digits = profileData.phone.replace(/\D/g, '');
+        if (digits.length < 10) {
+          showToast(
+            language === 'ru' ? 'Введите корректный номер' : 'Введіть коректний номер',
+            'error',
+          );
+          setSaving(false);
+          return;
+        }
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('phone', profileData.phone)
+          .neq('id', user.id)
+          .maybeSingle();
+        if (existing) {
+          Alert.alert(
+            language === 'ru' ? 'Номер уже используется' : 'Номер вже використовується',
+            language === 'ru'
+              ? 'Этот номер привязан к другому аккаунту. Войдите через Telegram или SMS с этим номером.'
+              : 'Цей номер прив\'язаний до іншого акаунту. Увійдіть через Telegram або SMS з цим номером.',
+          );
+          setSaving(false);
+          return;
+        }
         updateData.phone = profileData.phone;
       }
       await supabase
