@@ -129,13 +129,19 @@ export default function AccountScreen() {
     setSaving(true);
     try {
       const existingMeta = (profile as any)?.metadata ?? {};
-      await supabase
-        .from('profiles')
-        .update({
+      const updateData: Record<string, any> = {
           first_name: profileData.firstName,
           last_name: profileData.lastName,
           email: profileData.email,
           company: profileData.company,
+      };
+      if (profileData.phone && !profile?.phone) {
+        updateData.phone = profileData.phone;
+      }
+      await supabase
+        .from('profiles')
+        .update({
+          ...updateData,
           metadata: {
             ...existingMeta,
             default_city: delivery.city,

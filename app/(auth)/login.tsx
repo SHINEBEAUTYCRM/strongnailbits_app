@@ -80,15 +80,38 @@ export default function LoginScreen() {
         throw new Error('Apple не повернув токен');
       }
 
-      const { error } = await supabase.auth.signInWithIdToken({
+      const { data: authData, error } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: credential.identityToken,
       });
 
       if (error) throw error;
 
+      const userId = authData?.user?.id;
+      if (userId) {
+        const updates: Record<string, string> = {};
+        if (credential.fullName?.givenName) updates.first_name = credential.fullName.givenName;
+        if (credential.fullName?.familyName) updates.last_name = credential.fullName.familyName;
+        if (credential.email) updates.email = credential.email;
+        else if (authData.user?.email) updates.email = authData.user.email;
+
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('profiles').update(updates).eq('id', userId);
+        }
+      }
+
       await initialize();
-      router.replace('/(tabs)/account');
+
+      const profile = useAuthStore.getState().profile;
+      if (!profile?.phone) {
+        router.replace('/(tabs)/account');
+        showToast(
+          language === 'ru' ? 'Заполните номер телефона' : 'Заповніть номер телефону',
+          'info',
+        );
+      } else {
+        router.replace('/(tabs)/account');
+      }
     } catch (err: any) {
       if (err.code === 'ERR_REQUEST_CANCELED') return;
       showToast(err.message || 'Помилка входу через Apple', 'error');

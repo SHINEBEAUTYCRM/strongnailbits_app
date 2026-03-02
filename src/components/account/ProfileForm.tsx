@@ -32,11 +32,23 @@ export function ProfileForm({ data, onChange }: ProfileFormProps) {
         value={data.lastName}
         onChangeText={(lastName) => onChange({ ...data, lastName })}
       />
-      <Input
-        label={language === 'ru' ? 'Телефон' : 'Телефон'}
-        value={data.phone}
-        editable={false}
-      />
+      <View>
+        <Input
+          label={language === 'ru' ? 'Телефон' : 'Телефон'}
+          value={data.phone}
+          onChangeText={data.phone ? undefined : (phone) => onChange({ ...data, phone })}
+          editable={!data.phone}
+          keyboardType="phone-pad"
+          placeholder="+380"
+        />
+        {!data.phone && (
+          <Text style={styles.hint}>
+            {language === 'ru'
+              ? 'Укажите номер для связи по заказам'
+              : 'Вкажіть номер для зв\'язку по замовленнях'}
+          </Text>
+        )}
+      </View>
       <View>
         <Input
           label="Email"
