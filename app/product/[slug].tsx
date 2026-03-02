@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import { ArrowLeft, Heart, Share2, Copy, AlertCircle, RefreshCw } from 'lucide-react-native';
+import { ArrowLeft, Heart, Copy, AlertCircle, RefreshCw, ShoppingCart, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { colors, fontSizes, borderRadius, spacing, shadows } from '@/theme';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,15 +17,17 @@ import { ProductGallery } from '@/components/product/ProductGallery';
 import { RelatedProducts } from '@/components/product/RelatedProducts';
 import { QuantitySelector } from '@/components/ui/QuantitySelector';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
 import { formatPrice, formatDiscount } from '@/utils/format';
 import { trackViewItem, trackAddToCart } from '@/lib/analytics/tracker';
 import type { Product, ProductListItem } from '@/types/product';
 
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
 export default function ProductScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { language, tField } = useLanguage();
   const { showToast } = useToast();
@@ -38,6 +41,7 @@ export default function ProductScreen() {
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
     if (!slug) {
@@ -77,7 +81,6 @@ export default function ProductScreen() {
         return;
       }
 
-      /* Run brand, related, and b2b price queries in parallel */
       const [brandResult, relatedResult, b2bResult] = await Promise.all([
         data.brand_id
           ? supabase
@@ -123,24 +126,18 @@ export default function ProductScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.pearl }} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
             <ArrowLeft size={24} color={colors.dark} />
           </TouchableOpacity>
         </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <View style={styles.errorContainer}>
           <AlertCircle size={40} color="#ef4444" />
-          <Text style={{ color: '#ef4444', fontSize: 14, textAlign: 'center', marginTop: 12, marginBottom: 8, fontFamily: 'Inter-Medium' }}>
+          <Text style={styles.errorTitle}>
             {loadError || 'Товар не знайдено'}
           </Text>
-          <Text style={{ color: '#999', fontSize: 12, textAlign: 'center', marginBottom: 20, fontFamily: 'Inter-Regular' }}>
-            slug: {JSON.stringify(slug)}
-          </Text>
-          <TouchableOpacity
-            onPress={() => loadProduct()}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: colors.coral, borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 }}
-          >
+          <TouchableOpacity onPress={() => loadProduct()} style={styles.retryButton}>
             <RefreshCw size={16} color={colors.coral} />
-            <Text style={{ color: colors.coral, fontFamily: 'Inter-Medium' }}>Спробувати ще</Text>
+            <Text style={styles.retryText}>Спробувати ще</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -156,6 +153,8 @@ export default function ProductScreen() {
   );
   const isWished = hasInWishlist(product.id);
   const displayPrice = b2bPrice ?? product.price;
+  const hasProperties = product.properties && Object.keys(product.properties).length > 0;
+  const descriptionLong = (description?.length ?? 0) > 150;
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
@@ -185,14 +184,15 @@ export default function ProductScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <ArrowLeft size={24} color={colors.dark} />
-        </TouchableOpacity>
-        <View style={styles.headerActions}>
+    <View style={styles.screen}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+            <ArrowLeft size={24} color={colors.dark} />
+          </TouchableOpacity>
           <TouchableOpacity
+            style={styles.headerBtn}
             onPress={() => {
               Haptics.selectionAsync();
               toggleWishlist({
@@ -213,42 +213,71 @@ export default function ProductScreen() {
             />
           </TouchableOpacity>
         </View>
-      </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Gallery */}
-        <ProductGallery images={images} name={name} />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: spacing.xl }}
+        >
+          {/* Gallery */}
+          <ProductGallery images={images} name={name} />
 
-        {/* Info */}
-        <View style={styles.info}>
-          {/* Brand */}
-          {product.brands && (
-            <Text style={styles.brand}>{product.brands.name}</Text>
-          )}
-
-          {/* Name */}
-          <Text style={styles.name}>{name}</Text>
-
-          {/* SKU */}
-          {product.sku && (
-            <TouchableOpacity style={styles.skuRow} onPress={handleCopySku}>
-              <Text style={styles.sku}>Артикул: {product.sku}</Text>
-              <Copy size={14} color={colors.darkTertiary} />
-            </TouchableOpacity>
-          )}
-
-          {/* Status */}
-          <View style={styles.statusRow}>
-            {isOutOfStock ? (
-              <Badge text="Немає в наявності" variant="red" />
-            ) : product.quantity < 5 ? (
-              <Badge text="Закінчується" variant="amber" />
-            ) : (
-              <Badge text="В наявності" variant="green" />
+          {/* Product Info */}
+          <View style={styles.info}>
+            {/* Brand */}
+            {product.brands && (
+              <Text style={styles.brand}>{product.brands.name}</Text>
             )}
-            {discount && <Badge text={discount} variant="coral" />}
-            {product.is_new && <Badge text="NEW" variant="violet" />}
+
+            {/* Name */}
+            <Text style={styles.name}>{name}</Text>
+
+            {/* SKU */}
+            {product.sku && (
+              <TouchableOpacity style={styles.skuRow} onPress={handleCopySku}>
+                <Text style={styles.sku}>Артикул: {product.sku}</Text>
+                <Copy size={14} color={colors.darkTertiary} />
+              </TouchableOpacity>
+            )}
+
+            {/* Status Badges */}
+            <View style={styles.statusRow}>
+              {isOutOfStock ? (
+                <Badge text="Немає в наявності" variant="red" />
+              ) : product.quantity < 5 ? (
+                <Badge text="Закінчується" variant="amber" />
+              ) : (
+                <Badge text="В наявності" variant="green" />
+              )}
+              {discount && <Badge text={discount} variant="coral" />}
+              {product.is_new && <Badge text="NEW" variant="violet" />}
+            </View>
+
+            {/* Price Section */}
+            <View style={styles.priceSection}>
+              <Text style={styles.priceMain}>{formatPrice(displayPrice)}</Text>
+              {product.old_price && product.old_price > displayPrice && (
+                <Text style={styles.priceOld}>{formatPrice(product.old_price)}</Text>
+              )}
+              {b2bPrice && <Badge text="B2B" variant="violet" size="sm" />}
+            </View>
           </View>
+
+          {/* Divider */}
+          <View style={styles.divider} />
+
+          {/* Properties */}
+          {hasProperties && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Характеристики</Text>
+              {Object.entries(product.properties!).map(([key, value]) => (
+                <View key={key} style={styles.propRow}>
+                  <Text style={styles.propKey}>{key}</Text>
+                  <View style={styles.propDots} />
+                  <Text style={styles.propValue}>{String(value)}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
           {/* Description */}
           {description && (
@@ -256,99 +285,122 @@ export default function ProductScreen() {
               <Text style={styles.sectionTitle}>
                 {language === 'ru' ? 'Описание' : 'Опис'}
               </Text>
-              <Text style={styles.description}>{description}</Text>
-            </View>
-          )}
-
-          {/* Properties */}
-          {product.properties && Object.keys(product.properties).length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {language === 'ru' ? 'Характеристики' : 'Характеристики'}
+              <Text
+                style={styles.description}
+                numberOfLines={descExpanded || !descriptionLong ? undefined : 4}
+              >
+                {description}
               </Text>
-              {Object.entries(product.properties).map(([key, value]) => (
-                <View key={key} style={styles.propRow}>
-                  <Text style={styles.propKey}>{key}</Text>
-                  <Text style={styles.propValue}>{value}</Text>
-                </View>
-              ))}
+              {descriptionLong && (
+                <TouchableOpacity
+                  style={styles.expandButton}
+                  onPress={() => setDescExpanded(!descExpanded)}
+                >
+                  <Text style={styles.expandText}>
+                    {descExpanded
+                      ? (language === 'ru' ? 'Свернуть' : 'Згорнути')
+                      : (language === 'ru' ? 'Показать больше' : 'Показати більше')}
+                  </Text>
+                  {descExpanded
+                    ? <ChevronUp size={16} color={colors.coral} />
+                    : <ChevronDown size={16} color={colors.coral} />}
+                </TouchableOpacity>
+              )}
             </View>
           )}
-        </View>
 
-        {/* Related Products */}
-        <RelatedProducts products={related} />
-      </ScrollView>
+          {/* Related Products */}
+          {related.length > 0 && (
+            <>
+              <View style={styles.divider} />
+              <RelatedProducts products={related} />
+            </>
+          )}
+        </ScrollView>
 
-      {/* Sticky Buy Bar */}
-      <View style={[styles.buyBar, shadows.lg]}>
-        <View style={styles.priceContainer}>
-          <Text style={styles.price}>{formatPrice(displayPrice)}</Text>
-          {product.old_price && product.old_price > displayPrice && (
-            <Text style={styles.oldPrice}>{formatPrice(product.old_price)}</Text>
-          )}
-          {b2bPrice && (
-            <Badge text="B2B" variant="violet" size="sm" />
-          )}
-        </View>
-        <View style={styles.buyActions}>
-          <QuantitySelector
-            value={quantity}
-            max={product.quantity}
-            onChange={setQuantity}
-            size="sm"
-          />
-          <Button
-            title={isOutOfStock ? 'Немає' : 'Додати в кошик'}
+        {/* Sticky Buy Bar */}
+        <View style={[styles.buyBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+          <View style={styles.buyBarTop}>
+            <View style={styles.buyBarPrice}>
+              <Text style={styles.buyPrice}>{formatPrice(displayPrice)}</Text>
+              {product.old_price && product.old_price > displayPrice && (
+                <Text style={styles.buyOldPrice}>{formatPrice(product.old_price)}</Text>
+              )}
+            </View>
+            {!isOutOfStock && (
+              <QuantitySelector
+                value={quantity}
+                max={product.quantity}
+                onChange={setQuantity}
+                size="sm"
+              />
+            )}
+          </View>
+          <TouchableOpacity
+            style={[styles.addToCartBtn, isOutOfStock && styles.addToCartDisabled]}
             onPress={handleAddToCart}
             disabled={isOutOfStock}
-            size="md"
-          />
+            activeOpacity={0.8}
+          >
+            {!isOutOfStock && <ShoppingCart size={20} color="#fff" />}
+            <Text style={styles.addToCartText}>
+              {isOutOfStock ? 'Немає в наявності' : 'Додати в кошик'}
+            </Text>
+          </TouchableOpacity>
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  screen: {
     flex: 1,
     backgroundColor: colors.pearl,
+  },
+  safeArea: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
-  headerActions: {
-    flexDirection: 'row',
-    gap: spacing.lg,
+  headerBtn: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 22,
   },
   info: {
     padding: spacing.lg,
-    gap: spacing.md,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
   },
   brand: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Inter-Medium',
+    fontSize: fontSizes.xs,
+    fontFamily: 'Inter-SemiBold',
     color: colors.coral,
     textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   name: {
-    fontSize: fontSizes.xl,
+    fontSize: fontSizes.lg,
     fontFamily: 'Unbounded-Medium',
     color: colors.dark,
-    lineHeight: 28,
+    lineHeight: 26,
   },
   skuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    marginTop: 2,
   },
   sku: {
     fontSize: fontSizes.xs,
@@ -359,69 +411,155 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     flexWrap: 'wrap',
+    marginTop: spacing.xs,
+  },
+  priceSection: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  priceMain: {
+    fontSize: 28,
+    fontFamily: 'JetBrainsMono-Bold',
+    color: colors.dark,
+  },
+  priceOld: {
+    fontSize: fontSizes.lg,
+    fontFamily: 'JetBrainsMono-Regular',
+    color: colors.darkTertiary,
+    textDecorationLine: 'line-through',
+  },
+  divider: {
+    height: 8,
+    backgroundColor: colors.sand,
   },
   section: {
-    marginTop: spacing.lg,
+    padding: spacing.lg,
     gap: spacing.sm,
   },
   sectionTitle: {
-    fontSize: fontSizes.lg,
+    fontSize: fontSizes.md,
     fontFamily: 'Inter-SemiBold',
     color: colors.dark,
-  },
-  description: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Inter-Regular',
-    color: colors.darkSecondary,
-    lineHeight: 22,
+    marginBottom: spacing.xs,
   },
   propRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
   },
   propKey: {
     fontSize: fontSizes.sm,
     fontFamily: 'Inter-Regular',
     color: colors.darkSecondary,
+  },
+  propDots: {
     flex: 1,
+    height: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    borderStyle: 'dotted',
+    marginHorizontal: spacing.sm,
   },
   propValue: {
     fontSize: fontSizes.sm,
     fontFamily: 'Inter-Medium',
     color: colors.dark,
-    flex: 1,
+    maxWidth: SCREEN_WIDTH * 0.4,
     textAlign: 'right',
+  },
+  description: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Inter-Regular',
+    color: colors.darkSecondary,
+    lineHeight: 22,
+  },
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.xs,
+  },
+  expandText: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Inter-Medium',
+    color: colors.coral,
   },
   buyBar: {
     backgroundColor: colors.white,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
-    gap: spacing.md,
+    gap: spacing.sm,
+    ...shadows.lg,
   },
-  priceContainer: {
+  buyBarTop: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  buyBarPrice: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
     gap: spacing.sm,
   },
-  price: {
-    fontSize: fontSizes['2xl'],
+  buyPrice: {
+    fontSize: fontSizes.xl,
     fontFamily: 'JetBrainsMono-Bold',
     color: colors.dark,
   },
-  oldPrice: {
-    fontSize: fontSizes.md,
+  buyOldPrice: {
+    fontSize: fontSizes.sm,
     fontFamily: 'JetBrainsMono-Regular',
     color: colors.darkTertiary,
     textDecorationLine: 'line-through',
   },
-  buyActions: {
+  addToCartBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.coral,
+    borderRadius: borderRadius.full,
+    height: 52,
+  },
+  addToCartDisabled: {
+    backgroundColor: colors.darkTertiary,
+    opacity: 0.5,
+  },
+  addToCartText: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Inter-Bold',
+    color: '#fff',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
     gap: spacing.md,
+  },
+  errorTitle: {
+    color: '#ef4444',
+    fontSize: fontSizes.sm,
+    textAlign: 'center',
+    fontFamily: 'Inter-Medium',
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.coral,
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  retryText: {
+    color: colors.coral,
+    fontFamily: 'Inter-Medium',
+    fontSize: fontSizes.sm,
   },
 });

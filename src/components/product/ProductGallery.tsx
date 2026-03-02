@@ -53,7 +53,7 @@ export function ProductGallery({ images, name }: ProductGalleryProps) {
             <Image
               source={{ uri: item.url || undefined }}
               style={styles.image}
-              contentFit="cover"
+              contentFit="contain"
               transition={200}
             />
           </TouchableOpacity>
@@ -114,8 +114,8 @@ export function ProductGallery({ images, name }: ProductGalleryProps) {
 const styles = StyleSheet.create({
   image: {
     width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH,
-    backgroundColor: colors.sand,
+    height: SCREEN_WIDTH * 0.85,
+    backgroundColor: colors.white,
   },
   indicators: {
     flexDirection: 'row',
