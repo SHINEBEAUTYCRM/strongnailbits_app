@@ -61,6 +61,13 @@ function AndroidBackHandler() {
   return null;
 }
 
+/** Runs inside ToastProvider so sync hooks can show error toasts */
+function SyncManager() {
+  useCartSync();
+  useWishlistSync();
+  return null;
+}
+
 function RootLayout() {
   const [fontsLoaded, setFontsLoaded] = React.useState(false);
   const initialize = useAuthStore((s) => s.initialize);
@@ -98,12 +105,6 @@ function RootLayout() {
   // Realtime subscriptions
   useRealtimeSync();
 
-  // Sync cart with Supabase
-  useCartSync();
-
-  // Sync wishlist with Supabase
-  useWishlistSync();
-
   if (!fontsLoaded) return null;
 
   return (
@@ -111,6 +112,7 @@ function RootLayout() {
       <SafeAreaProvider>
         <ErrorBoundary>
           <ToastProvider>
+            <SyncManager />
             <AndroidBackHandler />
             <OfflineBanner />
             <StatusBar style="dark" />

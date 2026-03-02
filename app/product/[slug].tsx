@@ -77,44 +77,39 @@ export default function ProductScreen() {
         return;
       }
 
-      let brandData = null;
-      if (data.brand_id) {
-        const { data: brand } = await supabase
-          .from('brands')
-          .select('id, name, slug, logo_url')
-          .eq('id', data.brand_id)
-          .maybeSingle();
-        brandData = brand;
-      }
+      /* Run brand, related, and b2b price queries in parallel */
+      const [brandResult, relatedResult, b2bResult] = await Promise.all([
+        data.brand_id
+          ? supabase
+              .from('brands')
+              .select('id, name, slug, logo_url')
+              .eq('id', data.brand_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        data.category_id
+          ? supabase
+              .from('products')
+              .select('id, slug, name_uk, name_ru, price, old_price, main_image_url, quantity, status, is_new, is_featured')
+              .eq('category_id', data.category_id)
+              .neq('id', data.id)
+              .eq('status', 'active')
+              .limit(10)
+          : Promise.resolve({ data: null }),
+        user
+          ? supabase
+              .from('customer_prices')
+              .select('price')
+              .eq('profile_id', user.id)
+              .eq('product_id', data.id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
 
-      const prod = { ...data, brands: brandData } as unknown as Product;
+      const prod = { ...data, brands: brandResult.data ?? null } as unknown as Product;
       setProduct(prod);
       trackViewItem(prod.id, prod.name_uk);
-
-      if (prod.category_id) {
-        try {
-          const { data: rel } = await supabase
-            .from('products')
-            .select('id, slug, name_uk, name_ru, price, old_price, main_image_url, quantity, status, is_new, is_featured')
-            .eq('category_id', prod.category_id)
-            .neq('id', prod.id)
-            .eq('status', 'active')
-            .limit(10);
-          setRelated((rel ?? []) as ProductListItem[]);
-        } catch {}
-      }
-
-      if (user) {
-        try {
-          const { data: bp } = await supabase
-            .from('customer_prices')
-            .select('price')
-            .eq('profile_id', user.id)
-            .eq('product_id', prod.id)
-            .maybeSingle();
-          if (bp) setB2bPrice(bp.price);
-        } catch {}
-      }
+      setRelated((relatedResult.data ?? []) as ProductListItem[]);
+      if (b2bResult.data) setB2bPrice(b2bResult.data.price);
     } catch (error: any) {
       setLoadError(`Exception: ${error?.message || JSON.stringify(error)}`);
     } finally {

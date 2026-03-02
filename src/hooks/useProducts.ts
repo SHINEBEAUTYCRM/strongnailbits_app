@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import type { ProductListItem, SortOption } from '@/types/product';
 
@@ -34,10 +34,14 @@ export function useProducts(options: UseProductsOptions = {}) {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
+  const fetchIdRef = useRef(0);
 
   const fetchProducts = useCallback(
     async (offset: number, append = false) => {
       if (!enabled) return;
+
+      /* Track fetch identity to discard stale responses */
+      const id = ++fetchIdRef.current;
 
       if (append) {
         setIsLoadingMore(true);
@@ -89,6 +93,9 @@ export function useProducts(options: UseProductsOptions = {}) {
 
         const { data, count, error } = await query;
 
+        /* Discard if a newer fetch was started */
+        if (id !== fetchIdRef.current) return;
+
         if (error) throw error;
 
         const items = (data ?? []) as ProductListItem[];
@@ -101,10 +108,13 @@ export function useProducts(options: UseProductsOptions = {}) {
           setProducts(items);
         }
       } catch (error) {
+        if (id !== fetchIdRef.current) return;
         console.error('Failed to fetch products:', error);
       } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
+        if (id === fetchIdRef.current) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
       }
     },
     [categoryIds, brandIds, minPrice, maxPrice, inStock, sort, enabled]

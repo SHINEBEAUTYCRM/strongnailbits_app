@@ -3,18 +3,17 @@ import { AppState, AppStateStatus } from 'react-native';
 import { useCartStore } from '@/stores/cart';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/components/ui/Toast';
 import { CartItem } from '@/types/cart';
 
-let saveTimeout: ReturnType<typeof setTimeout> | null = null;
-
-async function saveCartToSupabase(userId: string, items: CartItem[]) {
+async function saveCartToSupabase(userId: string, items: CartItem[]): Promise<boolean> {
   try {
     const cartItems = items.map(item => ({
       product_id: item.product_id,
       quantity: item.quantity,
     }));
 
-    await supabase.from('carts').upsert(
+    const { error } = await supabase.from('carts').upsert(
       {
         profile_id: userId,
         items: cartItems,
@@ -22,8 +21,15 @@ async function saveCartToSupabase(userId: string, items: CartItem[]) {
       },
       { onConflict: 'profile_id' }
     );
+
+    if (error) {
+      console.error('[CartSync] Save error:', error);
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error('[CartSync] Save error:', err);
+    return false;
   }
 }
 
@@ -77,13 +83,17 @@ async function loadCartFromSupabase(userId: string): Promise<CartItem[] | null> 
 export function useCartSync() {
   const { user } = useAuth();
   const items = useCartStore((s) => s.items);
+  const { showToast } = useToast();
   const loaded = useRef(false);
   const skipNextSave = useRef(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveFailCount = useRef(0);
   const userId = user?.id;
 
   useEffect(() => {
     if (!userId) {
       loaded.current = false;
+      saveFailCount.current = 0;
       return;
     }
 
@@ -119,13 +129,22 @@ export function useCartSync() {
       return;
     }
 
-    if (saveTimeout) clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => {
-      saveCartToSupabase(userId, items);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(async () => {
+      const ok = await saveCartToSupabase(userId, items);
+      if (!ok) {
+        saveFailCount.current++;
+        /* Show toast only on first failure to avoid spamming */
+        if (saveFailCount.current === 1) {
+          showToast('Не вдалося зберегти кошик', 'error');
+        }
+      } else {
+        saveFailCount.current = 0;
+      }
     }, 1500);
 
     return () => {
-      if (saveTimeout) clearTimeout(saveTimeout);
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
   }, [items, userId]);
 

@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
   FadeInDown,
@@ -49,6 +49,14 @@ export const ProductCard = memo(function ProductCard({
   const { showToast } = useToast();
 
   const [addedToCart, setAddedToCart] = useState(false);
+  const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* Cleanup timer on unmount */
+  useEffect(() => {
+    return () => {
+      if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    };
+  }, []);
 
   const name = tField(product.name_uk, product.name_ru);
   const isOutOfStock = product.quantity <= 0;
@@ -123,7 +131,8 @@ export const ProductCard = memo(function ProductCard({
     trackAddToCart(product.id, name, product.price);
     showToast('Додано в кошик', 'success');
     setAddedToCart(true);
-    setTimeout(() => setAddedToCart(false), 1500);
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    addedTimerRef.current = setTimeout(() => setAddedToCart(false), 1500);
   }, [product, name, isOutOfStock, addedToCart]);
 
   const handleToggleWishlist = useCallback(() => {
@@ -168,13 +177,13 @@ export const ProductCard = memo(function ProductCard({
         ) : null}
 
         {!discount && product.is_new && (
-          <View style={[styles.discountBadge, { backgroundColor: '#22c55e' }]}>
+          <View style={[styles.discountBadge, { backgroundColor: colors.green }]}>
             <Text style={styles.discountText}>NEW</Text>
           </View>
         )}
 
         {!discount && !product.is_new && product.is_featured && (
-          <View style={[styles.discountBadge, { backgroundColor: '#c27400' }]}>
+          <View style={[styles.discountBadge, { backgroundColor: colors.amber }]}>
             <Text style={styles.discountText}>HIT</Text>
           </View>
         )}
@@ -242,7 +251,7 @@ export const ProductCard = memo(function ProductCard({
         >
           {addedToCart ? (
             <View style={styles.cartButtonRow}>
-              <Check size={14} color="#FFFFFF" />
+              <Check size={14} color={colors.white} />
               <Text style={styles.cartButtonText}>Додано</Text>
             </View>
           ) : (
@@ -269,7 +278,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     position: 'relative',
-    backgroundColor: '#f5f5f7',
+    backgroundColor: colors.pearl,
   },
   image: {
     width: '100%',
@@ -285,7 +294,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   discountText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 11,
     fontFamily: 'Inter-Bold',
   },
@@ -347,7 +356,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   cartButtonSuccess: {
-    backgroundColor: '#22c55e',
+    backgroundColor: colors.green,
   },
   cartButtonDisabled: {
     backgroundColor: colors.sand,
@@ -355,7 +364,7 @@ const styles = StyleSheet.create({
   cartButtonText: {
     fontSize: 13,
     fontFamily: 'Inter-SemiBold',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   cartButtonTextDisabled: {
     color: colors.darkTertiary,
@@ -391,11 +400,11 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#22c55e',
+    backgroundColor: colors.green,
   },
   stockText: {
     fontSize: 11,
     fontFamily: 'Inter-Regular',
-    color: '#22c55e',
+    color: colors.green,
   },
 });
