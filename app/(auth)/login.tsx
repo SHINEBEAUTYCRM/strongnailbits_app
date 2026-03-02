@@ -16,7 +16,7 @@ import { useToast } from '@/components/ui/Toast';
 
 const API_BASE = 'https://shineshopb2b.com';
 
-type Step = 'phone' | 'telegram_waiting' | 'otp' | 'otp_password' | 'password';
+type Step = 'phone' | 'telegram_waiting' | 'otp' | 'otp_password' | 'password' | 'apple_phone';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -32,6 +32,9 @@ export default function LoginScreen() {
   const [usePassword, setUsePassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+
+  // Apple phone step
+  const [appleUserId, setAppleUserId] = useState<string | null>(null);
 
   // Telegram auth state
   const [tgToken, setTgToken] = useState<string | null>(null);
@@ -88,33 +91,100 @@ export default function LoginScreen() {
       if (error) throw error;
 
       const userId = authData?.user?.id;
-      if (userId) {
-        const updates: Record<string, string> = {};
-        if (credential.fullName?.givenName) updates.first_name = credential.fullName.givenName;
-        if (credential.fullName?.familyName) updates.last_name = credential.fullName.familyName;
-        if (credential.email) updates.email = credential.email;
-        else if (authData.user?.email) updates.email = authData.user.email;
+      if (!userId) throw new Error('Помилка авторизації');
 
-        if (Object.keys(updates).length > 0) {
-          await supabase.from('profiles').update(updates).eq('id', userId);
-        }
+      const updates: Record<string, string> = {};
+      if (credential.fullName?.givenName) updates.first_name = credential.fullName.givenName;
+      if (credential.fullName?.familyName) updates.last_name = credential.fullName.familyName;
+      if (credential.email) updates.email = credential.email;
+      else if (authData.user?.email) updates.email = authData.user.email;
+
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('profiles').update(updates).eq('id', userId);
       }
 
-      await initialize();
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', userId)
+        .single();
 
-      const profile = useAuthStore.getState().profile;
-      if (!profile?.phone) {
+      if (currentProfile?.phone) {
+        await initialize();
         router.replace('/(tabs)/account');
-        showToast(
-          language === 'ru' ? 'Заполните номер телефона' : 'Заповніть номер телефону',
-          'info',
-        );
-      } else {
-        router.replace('/(tabs)/account');
+        return;
       }
+
+      setAppleUserId(userId);
+      setPhone('');
+      setStep('apple_phone');
     } catch (err: any) {
       if (err.code === 'ERR_REQUEST_CANCELED') return;
       showToast(err.message || 'Помилка входу через Apple', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ─── Apple: Phone Submit + Sync ───
+  const handleApplePhoneSubmit = async () => {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 10) {
+      showToast(
+        language === 'ru' ? 'Введите корректный номер' : 'Введіть коректний номер',
+        'error',
+      );
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('phone', phone)
+        .neq('id', appleUserId!)
+        .maybeSingle();
+
+      if (existingProfile) {
+        const syncFields = [
+          'first_name', 'last_name', 'company', 'email',
+          'is_b2b', 'loyalty_points', 'loyalty_tier', 'balance',
+          'credit_limit', 'discount_percent', 'metadata',
+        ] as const;
+
+        const syncData: Record<string, any> = { phone };
+        for (const field of syncFields) {
+          const val = (existingProfile as any)[field];
+          if (val != null) syncData[field] = val;
+        }
+
+        await supabase.from('profiles').update(syncData).eq('id', appleUserId!);
+
+        // Migrate orders, bonuses, documents to Apple account
+        const oldId = existingProfile.id;
+        await Promise.allSettled([
+          supabase.from('orders').update({ profile_id: appleUserId! }).eq('profile_id', oldId),
+          supabase.from('bonuses').update({ profile_id: appleUserId! }).eq('profile_id', oldId),
+          supabase.from('documents').update({ profile_id: appleUserId! }).eq('profile_id', oldId),
+        ]);
+
+        showToast(
+          language === 'ru' ? 'Данные синхронизированы' : 'Дані синхронізовано',
+          'success',
+        );
+      } else {
+        await supabase.from('profiles').update({ phone }).eq('id', appleUserId!);
+        showToast(
+          language === 'ru' ? 'Добро пожаловать!' : 'Ласкаво просимо!',
+          'success',
+        );
+      }
+
+      await initialize();
+      router.replace('/(tabs)/account');
+    } catch (err: any) {
+      showToast(err.message || 'Помилка', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -325,6 +395,10 @@ export default function LoginScreen() {
           if (step === 'telegram_waiting') {
             stopPolling();
             setStep('phone');
+          } else if (step === 'apple_phone') {
+            supabase.auth.signOut();
+            setAppleUserId(null);
+            setStep('phone');
           } else {
             router.back();
           }
@@ -467,6 +541,35 @@ export default function LoginScreen() {
           </View>
         )}
 
+        {/* ── Apple Phone Step ── */}
+        {step === 'apple_phone' && (
+          <View style={styles.applePhoneContainer}>
+            <View style={styles.applePhoneIcon}>
+              <Text style={{ fontSize: 36 }}>📱</Text>
+            </View>
+
+            <Text style={styles.tgTitle}>
+              {language === 'ru' ? 'Укажите номер телефона' : 'Вкажіть номер телефону'}
+            </Text>
+
+            <Text style={styles.tgSubtitle}>
+              {language === 'ru'
+                ? 'Если вы наш клиент — данные подтянутся автоматически'
+                : 'Якщо ви наш клієнт — дані підтягнуться автоматично'}
+            </Text>
+
+            <PhoneInput value={phone} onChangeText={setPhone} />
+
+            <Button
+              title={language === 'ru' ? 'Продолжить' : 'Продовжити'}
+              onPress={handleApplePhoneSubmit}
+              loading={isLoading}
+              fullWidth
+              disabled={phone.replace(/\D/g, '').length < 10}
+            />
+          </View>
+        )}
+
         {/* ── OTP Step ── */}
         {step === 'otp' && (
           <>
@@ -517,7 +620,7 @@ export default function LoginScreen() {
         )}
 
         {/* Register link */}
-        {step !== 'telegram_waiting' && (
+        {step !== 'telegram_waiting' && step !== 'apple_phone' && (
           <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
             <Text style={styles.registerLink}>
               {language === 'ru' ? 'Нет аккаунта? Зарегистрироваться' : 'Немає акаунту? Зареєструватися'}
@@ -645,6 +748,19 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     fontFamily: 'Inter-Bold',
     color: '#ffffff',
+  },
+  applePhoneContainer: {
+    alignItems: 'center',
+    gap: spacing.lg,
+    paddingTop: spacing.xl,
+  },
+  applePhoneIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0, 122, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   divider: {
     flexDirection: 'row',

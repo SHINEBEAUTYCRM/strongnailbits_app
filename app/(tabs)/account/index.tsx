@@ -145,21 +145,28 @@ export default function AccountScreen() {
           setSaving(false);
           return;
         }
-        const { data: existing } = await supabase
+        const { data: existingProfile } = await supabase
           .from('profiles')
-          .select('id')
+          .select('*')
           .eq('phone', profileData.phone)
           .neq('id', user.id)
           .maybeSingle();
-        if (existing) {
-          Alert.alert(
-            language === 'ru' ? 'Номер уже используется' : 'Номер вже використовується',
-            language === 'ru'
-              ? 'Этот номер привязан к другому аккаунту. Войдите через Telegram или SMS с этим номером.'
-              : 'Цей номер прив\'язаний до іншого акаунту. Увійдіть через Telegram або SMS з цим номером.',
-          );
-          setSaving(false);
-          return;
+        if (existingProfile) {
+          const syncFields = [
+            'first_name', 'last_name', 'company', 'email',
+            'is_b2b', 'loyalty_points', 'loyalty_tier', 'balance',
+            'credit_limit', 'discount_percent', 'metadata',
+          ] as const;
+          for (const field of syncFields) {
+            const val = (existingProfile as any)[field];
+            if (val != null) updateData[field] = val;
+          }
+          const oldId = existingProfile.id;
+          await Promise.allSettled([
+            supabase.from('orders').update({ profile_id: user.id }).eq('profile_id', oldId),
+            supabase.from('bonuses').update({ profile_id: user.id }).eq('profile_id', oldId),
+            supabase.from('documents').update({ profile_id: user.id }).eq('profile_id', oldId),
+          ]);
         }
         updateData.phone = profileData.phone;
       }

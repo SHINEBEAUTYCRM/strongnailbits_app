@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { TouchableOpacity } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, fontSizes, spacing } from '@/theme';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useAuthStore } from '@/stores/auth';
@@ -14,7 +15,7 @@ import { RegisterForm } from '@/components/auth/RegisterForm';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 
-type Step = 'phone' | 'otp' | 'register';
+type Step = 'phone' | 'otp' | 'register' | 'apple_phone';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -33,6 +34,130 @@ export default function RegisterScreen() {
     password: '',
   });
 
+  const [appleUserId, setAppleUserId] = useState<string | null>(null);
+
+  // ─── Apple Sign-In ───
+  const handleAppleLogin = async () => {
+    setIsLoading(true);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('Apple не повернув токен');
+      }
+
+      const { data: authData, error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+
+      if (error) throw error;
+
+      const userId = authData?.user?.id;
+      if (!userId) throw new Error('Помилка авторизації');
+
+      const updates: Record<string, string> = {};
+      if (credential.fullName?.givenName) updates.first_name = credential.fullName.givenName;
+      if (credential.fullName?.familyName) updates.last_name = credential.fullName.familyName;
+      if (credential.email) updates.email = credential.email;
+      else if (authData.user?.email) updates.email = authData.user.email;
+
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('profiles').update(updates).eq('id', userId);
+      }
+
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', userId)
+        .single();
+
+      if (currentProfile?.phone) {
+        await initialize();
+        router.replace('/(tabs)/account');
+        return;
+      }
+
+      setAppleUserId(userId);
+      setPhone('');
+      setStep('apple_phone');
+    } catch (err: any) {
+      if (err.code === 'ERR_REQUEST_CANCELED') return;
+      showToast(err.message || 'Помилка входу через Apple', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ─── Apple: Phone Submit + Sync ───
+  const handleApplePhoneSubmit = async () => {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 10) {
+      showToast(
+        language === 'ru' ? 'Введите корректный номер' : 'Введіть коректний номер',
+        'error',
+      );
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('phone', phone)
+        .neq('id', appleUserId!)
+        .maybeSingle();
+
+      if (existingProfile) {
+        const syncFields = [
+          'first_name', 'last_name', 'company', 'email',
+          'is_b2b', 'loyalty_points', 'loyalty_tier', 'balance',
+          'credit_limit', 'discount_percent', 'metadata',
+        ] as const;
+
+        const syncData: Record<string, any> = { phone };
+        for (const field of syncFields) {
+          const val = (existingProfile as any)[field];
+          if (val != null) syncData[field] = val;
+        }
+
+        await supabase.from('profiles').update(syncData).eq('id', appleUserId!);
+
+        const oldId = existingProfile.id;
+        await Promise.allSettled([
+          supabase.from('orders').update({ profile_id: appleUserId! }).eq('profile_id', oldId),
+          supabase.from('bonuses').update({ profile_id: appleUserId! }).eq('profile_id', oldId),
+          supabase.from('documents').update({ profile_id: appleUserId! }).eq('profile_id', oldId),
+        ]);
+
+        showToast(
+          language === 'ru' ? 'Данные синхронизированы' : 'Дані синхронізовано',
+          'success',
+        );
+      } else {
+        await supabase.from('profiles').update({ phone }).eq('id', appleUserId!);
+        showToast(
+          language === 'ru' ? 'Добро пожаловать!' : 'Ласкаво просимо!',
+          'success',
+        );
+      }
+
+      await initialize();
+      router.replace('/(tabs)/account');
+    } catch (err: any) {
+      showToast(err.message || 'Помилка', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ─── SMS OTP ───
   const handleSendOtp = async () => {
     if (phone.replace(/\D/g, '').length < 12) {
       showToast(language === 'ru' ? 'Введите корректный номер' : 'Введіть коректний номер', 'error');
@@ -108,7 +233,15 @@ export default function RegisterScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => {
+          if (step === 'apple_phone') {
+            supabase.auth.signOut();
+            setAppleUserId(null);
+            setStep('phone');
+          } else {
+            router.back();
+          }
+        }}>
           <ArrowLeft size={24} color={colors.dark} />
         </TouchableOpacity>
       </View>
@@ -127,7 +260,54 @@ export default function RegisterScreen() {
               loading={isLoading}
               fullWidth
             />
+
+            {Platform.OS === 'ios' && (
+              <>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>
+                    {language === 'ru' ? 'или' : 'або'}
+                  </Text>
+                  <View style={styles.dividerLine} />
+                </View>
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                  cornerRadius={999}
+                  style={styles.appleButton}
+                  onPress={handleAppleLogin}
+                />
+              </>
+            )}
           </>
+        )}
+
+        {step === 'apple_phone' && (
+          <View style={styles.applePhoneContainer}>
+            <View style={styles.applePhoneIconWrap}>
+              <Text style={{ fontSize: 36 }}>📱</Text>
+            </View>
+
+            <Text style={styles.appleTitle}>
+              {language === 'ru' ? 'Укажите номер телефона' : 'Вкажіть номер телефону'}
+            </Text>
+
+            <Text style={styles.appleSubtitle}>
+              {language === 'ru'
+                ? 'Если вы наш клиент — данные подтянутся автоматически'
+                : 'Якщо ви наш клієнт — дані підтягнуться автоматично'}
+            </Text>
+
+            <PhoneInput value={phone} onChangeText={setPhone} />
+
+            <Button
+              title={language === 'ru' ? 'Продолжить' : 'Продовжити'}
+              onPress={handleApplePhoneSubmit}
+              loading={isLoading}
+              fullWidth
+              disabled={phone.replace(/\D/g, '').length < 10}
+            />
+          </View>
         )}
 
         {step === 'otp' && (
@@ -158,11 +338,13 @@ export default function RegisterScreen() {
           </>
         )}
 
-        <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-          <Text style={styles.loginLink}>
-            {language === 'ru' ? 'Уже есть аккаунт? Войти' : 'Вже є акаунт? Увійти'}
-          </Text>
-        </TouchableOpacity>
+        {step !== 'apple_phone' && (
+          <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+            <Text style={styles.loginLink}>
+              {language === 'ru' ? 'Уже есть аккаунт? Войти' : 'Вже є акаунт? Увійти'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -200,5 +382,50 @@ const styles = StyleSheet.create({
     color: colors.violet,
     textAlign: 'center',
     marginTop: spacing['2xl'],
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e5e5',
+  },
+  dividerText: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Inter-Regular',
+    color: colors.darkTertiary,
+  },
+  appleButton: {
+    width: '100%',
+    height: 48,
+  },
+  applePhoneContainer: {
+    alignItems: 'center',
+    gap: spacing.lg,
+    paddingTop: spacing.xl,
+  },
+  applePhoneIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0, 122, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  appleTitle: {
+    fontSize: fontSizes.xl,
+    fontFamily: 'Unbounded-Bold',
+    color: colors.dark,
+    textAlign: 'center',
+  },
+  appleSubtitle: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Inter-Regular',
+    color: colors.darkSecondary,
+    textAlign: 'center',
   },
 });

@@ -4,6 +4,19 @@ import type { ProductListItem, SortOption } from '@/types/product';
 
 const PAGE_SIZE = 20;
 
+/**
+ * Stable sort: products without image and out-of-stock sink to bottom.
+ * Priority: 0 = has image + in stock, 1 = has image + out of stock,
+ *           2 = no image + in stock, 3 = no image + out of stock.
+ */
+function sortByPriority(items: ProductListItem[]): ProductListItem[] {
+  return [...items].sort((a, b) => {
+    const pa = (a.main_image_url ? 0 : 2) + ((a.quantity ?? 0) > 0 ? 0 : 1);
+    const pb = (b.main_image_url ? 0 : 2) + ((b.quantity ?? 0) > 0 ? 0 : 1);
+    return pa - pb;
+  });
+}
+
 const PRODUCT_SELECT =
   'id, slug, name_uk, name_ru, price, old_price, main_image_url, quantity, status, is_new, is_featured, brand_id, brands(name, slug)';
 
@@ -34,6 +47,7 @@ export function useProducts(options: UseProductsOptions = {}) {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
+  const [initialLoaded, setInitialLoaded] = useState(false);
   const fetchIdRef = useRef(0);
 
   const fetchProducts = useCallback(
@@ -98,9 +112,11 @@ export function useProducts(options: UseProductsOptions = {}) {
 
         if (error) throw error;
 
-        const items = (data ?? []) as ProductListItem[];
+        const raw = (data ?? []) as ProductListItem[];
+        const items = sortByPriority(raw);
         setTotalCount(count ?? 0);
-        setHasMore(items.length === PAGE_SIZE);
+        setHasMore(raw.length === PAGE_SIZE);
+        setInitialLoaded(true);
 
         if (append) {
           setProducts((prev) => [...prev, ...items]);
@@ -121,6 +137,7 @@ export function useProducts(options: UseProductsOptions = {}) {
   );
 
   useEffect(() => {
+    setInitialLoaded(false);
     setPage(0);
     fetchProducts(0);
   }, [fetchProducts]);
@@ -140,7 +157,7 @@ export function useProducts(options: UseProductsOptions = {}) {
   return {
     products,
     totalCount,
-    isLoading,
+    isLoading: isLoading || (enabled && !initialLoaded),
     isLoadingMore,
     hasMore,
     loadMore,
