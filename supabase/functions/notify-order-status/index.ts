@@ -44,7 +44,7 @@ serve(async (req) => {
 
     const { data: order } = await supabase
       .from('orders')
-      .select('profile_id, order_number')
+      .select('profile_id, order_number, total')
       .eq('id', order_id)
       .single();
 
@@ -101,7 +101,59 @@ serve(async (req) => {
       } catch (e) { console.error('Push error:', e); }
     }
 
-    return new Response(JSON.stringify({ ok: true, notified: pushSent }), {
+    // === TELEGRAM CLIENT NOTIFICATION ===
+    let telegramSent = false;
+    const telegramBotToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    if (telegramBotToken && order.profile_id) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('telegram_chat_id')
+          .eq('id', order.profile_id)
+          .single();
+
+        if (profile?.telegram_chat_id) {
+          const chatId = profile.telegram_chat_id;
+          let tgMessage = '';
+
+          if (new_status === 'processing') {
+            tgMessage = `⚙️ Замовлення #${order.order_number} взято в обробку.\nОчікуйте відправку протягом доби.`;
+          } else if (new_status === 'shipped' && ttn) {
+            tgMessage = `🚚 Замовлення #${order.order_number} відправлено!\n\n📋 ТТН: <code>${ttn}</code>`;
+          } else if (new_status === 'delivered') {
+            tgMessage = `📬 Замовлення #${order.order_number} доставлено!\n\nДякуємо за покупку! 🙌`;
+          } else if (new_status === 'cancelled') {
+            tgMessage = `❌ Замовлення #${order.order_number} скасовано.\nЗверніться до менеджера за деталями.`;
+          }
+
+          if (tgMessage) {
+            const tgBody: Record<string, unknown> = {
+              chat_id: chatId,
+              text: tgMessage,
+              parse_mode: 'HTML',
+            };
+
+            // Add tracking button for shipped orders
+            if (new_status === 'shipped' && ttn) {
+              tgBody.reply_markup = {
+                inline_keyboard: [[
+                  { text: '📍 Трекінг НП', url: `https://novaposhta.ua/tracking/?cargo_number=${ttn}` },
+                ]],
+              };
+            }
+
+            const tgRes = await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(tgBody),
+            });
+            telegramSent = tgRes.ok;
+          }
+        }
+      } catch (e) { console.error('Telegram client notify error:', e); }
+    }
+
+    return new Response(JSON.stringify({ ok: true, notified: pushSent, telegramSent }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   } catch (error) {
