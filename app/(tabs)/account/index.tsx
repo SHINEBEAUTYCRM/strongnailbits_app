@@ -145,10 +145,16 @@ export default function AccountScreen() {
           setSaving(false);
           return;
         }
+        let normDigits = digits;
+        if (normDigits.startsWith('0')) normDigits = '38' + normDigits;
+        if (normDigits.length === 9) normDigits = '380' + normDigits;
+        const normalized = '+' + normDigits;
+        const local = '0' + normDigits.slice(3);
+
         const { data: existingProfile } = await supabase
           .from('profiles')
           .select('*')
-          .eq('phone', profileData.phone)
+          .or(`phone.eq.${normalized},phone.eq.${normDigits},phone.eq.${local}`)
           .neq('id', user.id)
           .maybeSingle();
         if (existingProfile) {
@@ -168,7 +174,7 @@ export default function AccountScreen() {
             supabase.from('documents').update({ profile_id: user.id }).eq('profile_id', oldId),
           ]);
         }
-        updateData.phone = profileData.phone;
+        updateData.phone = normalized;
       }
       await supabase
         .from('profiles')

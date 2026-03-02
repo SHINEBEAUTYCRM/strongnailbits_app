@@ -107,10 +107,16 @@ export default function RegisterScreen() {
 
     setIsLoading(true);
     try {
+      let normDigits = digits;
+      if (normDigits.startsWith('0')) normDigits = '38' + normDigits;
+      if (normDigits.length === 9) normDigits = '380' + normDigits;
+      const normalized = '+' + normDigits;
+      const local = '0' + normDigits.slice(3);
+
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('phone', phone)
+        .or(`phone.eq.${normalized},phone.eq.${normDigits},phone.eq.${local}`)
         .neq('id', appleUserId!)
         .maybeSingle();
 
@@ -121,7 +127,7 @@ export default function RegisterScreen() {
           'credit_limit', 'discount_percent', 'metadata',
         ] as const;
 
-        const syncData: Record<string, any> = { phone };
+        const syncData: Record<string, any> = { phone: normalized };
         for (const field of syncFields) {
           const val = (existingProfile as any)[field];
           if (val != null) syncData[field] = val;
@@ -141,7 +147,7 @@ export default function RegisterScreen() {
           'success',
         );
       } else {
-        await supabase.from('profiles').update({ phone }).eq('id', appleUserId!);
+        await supabase.from('profiles').update({ phone: normalized }).eq('id', appleUserId!);
         showToast(
           language === 'ru' ? 'Добро пожаловать!' : 'Ласкаво просимо!',
           'success',

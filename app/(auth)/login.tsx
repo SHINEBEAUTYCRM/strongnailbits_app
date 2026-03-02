@@ -139,10 +139,18 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
+      // Normalize to "+380XXXXXXXXX" (no spaces) for consistent DB storage
+      let normDigits = digits;
+      if (normDigits.startsWith('0')) normDigits = '38' + normDigits;
+      if (normDigits.length === 9) normDigits = '380' + normDigits;
+      const normalized = '+' + normDigits;
+      const local = '0' + normDigits.slice(3);
+
+      // Search with multiple phone formats to handle various DB formats
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('phone', phone)
+        .or(`phone.eq.${normalized},phone.eq.${normDigits},phone.eq.${local}`)
         .neq('id', appleUserId!)
         .maybeSingle();
 
@@ -153,7 +161,7 @@ export default function LoginScreen() {
           'credit_limit', 'discount_percent', 'metadata',
         ] as const;
 
-        const syncData: Record<string, any> = { phone };
+        const syncData: Record<string, any> = { phone: normalized };
         for (const field of syncFields) {
           const val = (existingProfile as any)[field];
           if (val != null) syncData[field] = val;
@@ -161,7 +169,6 @@ export default function LoginScreen() {
 
         await supabase.from('profiles').update(syncData).eq('id', appleUserId!);
 
-        // Migrate orders, bonuses, documents to Apple account
         const oldId = existingProfile.id;
         await Promise.allSettled([
           supabase.from('orders').update({ profile_id: appleUserId! }).eq('profile_id', oldId),
@@ -174,7 +181,7 @@ export default function LoginScreen() {
           'success',
         );
       } else {
-        await supabase.from('profiles').update({ phone }).eq('id', appleUserId!);
+        await supabase.from('profiles').update({ phone: normalized }).eq('id', appleUserId!);
         showToast(
           language === 'ru' ? 'Добро пожаловать!' : 'Ласкаво просимо!',
           'success',
