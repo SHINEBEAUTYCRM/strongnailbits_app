@@ -217,8 +217,8 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={styles.logoShine}>SHINE </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+            <Text style={styles.logoShine}>SHINE</Text>
             <Text style={styles.logoShop}>SHOP</Text>
           </View>
         </View>

@@ -13,7 +13,7 @@ import { colors, borderRadius, spacing } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BANNER_WIDTH = SCREEN_WIDTH - spacing.lg * 2;
-const BANNER_HEIGHT = BANNER_WIDTH * 0.45;
+const BANNER_HEIGHT = BANNER_WIDTH;
 
 interface Banner {
   id: string;
