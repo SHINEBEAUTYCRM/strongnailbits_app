@@ -26,6 +26,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { CategoryBlockCard } from '@/components/home/CategoryBlockCard';
 import { PromoStrip } from '@/components/home/PromoStrip';
 import { DealOfDaySection } from '@/components/home/DealOfDaySection';
+import { FloatingPetals, March8Banner, isMarch8Season } from '@/components/seasonal';
 import type { ProductListItem, Category } from '@/types/product';
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
@@ -250,13 +251,18 @@ export default function HomeScreen() {
     );
   }
 
+  const showSeasonal = isMarch8Season();
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      {showSeasonal && <FloatingPetals />}
+
       {/* Glass Header */}
       <Animated.View style={[styles.header, styles.headerShadow, headerAnimatedStyle]}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
           <Text style={styles.logoShine}>SHINE</Text>
           <Text style={styles.logoShop}>SHOP</Text>
+          {showSeasonal && <Text style={styles.seasonalFlower}>🌸</Text>}
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -295,6 +301,8 @@ export default function HomeScreen() {
       >
         {/* Promo Strip */}
         {promo.length > 0 && <PromoStrip banner={promo[0]} />}
+
+        {showSeasonal && <March8Banner />}
 
         {/* Search Bar */}
         <TouchableOpacity
@@ -388,6 +396,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Unbounded-Black',
     color: '#D6264A',
     marginLeft: 6,
+  },
+  seasonalFlower: {
+    fontSize: 16,
+    marginLeft: 4,
+    marginBottom: -2,
   },
   headerActions: {
     flexDirection: 'row',
