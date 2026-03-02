@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -18,6 +17,7 @@ import { RelatedProducts } from '@/components/product/RelatedProducts';
 import { QuantitySelector } from '@/components/ui/QuantitySelector';
 import { Badge } from '@/components/ui/Badge';
 import { Loading } from '@/components/ui/Loading';
+import { BottomNavBar } from '@/components/ui/BottomNavBar';
 import { formatPrice, formatDiscount } from '@/utils/format';
 import { trackViewItem, trackAddToCart } from '@/lib/analytics/tracker';
 import type { Product, ProductListItem } from '@/types/product';
@@ -27,7 +27,6 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 export default function ProductScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { language, tField } = useLanguage();
   const { showToast } = useToast();
@@ -140,6 +139,7 @@ export default function ProductScreen() {
             <Text style={styles.retryText}>Спробувати ще</Text>
           </TouchableOpacity>
         </View>
+        <BottomNavBar />
       </SafeAreaView>
     );
   }
@@ -319,7 +319,7 @@ export default function ProductScreen() {
         </ScrollView>
 
         {/* Sticky Buy Bar */}
-        <View style={[styles.buyBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+        <View style={styles.buyBar}>
           <View style={styles.buyBarTop}>
             <View style={styles.buyBarPrice}>
               <Text style={styles.buyPrice}>{formatPrice(displayPrice)}</Text>
@@ -348,6 +348,8 @@ export default function ProductScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        <BottomNavBar />
       </SafeAreaView>
     </View>
   );
@@ -489,11 +491,11 @@ const styles = StyleSheet.create({
   buyBar: {
     backgroundColor: colors.white,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
-    gap: spacing.sm,
-    ...shadows.lg,
+    gap: spacing.xs,
   },
   buyBarTop: {
     flexDirection: 'row',

@@ -10,6 +10,7 @@ import { SearchBar } from '@/components/ui/SearchBar';
 import { ProductGrid } from '@/components/product/ProductGrid';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Loading } from '@/components/ui/Loading';
+import { BottomNavBar } from '@/components/ui/BottomNavBar';
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -72,6 +73,8 @@ export default function SearchScreen() {
       ) : (
         <ProductGrid products={products} />
       )}
+
+      <BottomNavBar />
     </SafeAreaView>
   );
 }

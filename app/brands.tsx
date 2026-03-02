@@ -8,6 +8,7 @@ import { colors, fontSizes, borderRadius, spacing } from '@/theme';
 import { useLanguage } from '@/hooks/useLanguage';
 import { supabase } from '@/lib/supabase/client';
 import { Loading } from '@/components/ui/Loading';
+import { BottomNavBar } from '@/components/ui/BottomNavBar';
 import type { Brand } from '@/types/product';
 
 export default function BrandsScreen() {
@@ -99,6 +100,8 @@ export default function BrandsScreen() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
       />
+
+      <BottomNavBar />
     </SafeAreaView>
   );
 }

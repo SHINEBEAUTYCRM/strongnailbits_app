@@ -8,6 +8,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Loading } from '@/components/ui/Loading';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { BottomNavBar } from '@/components/ui/BottomNavBar';
 import { formatDateTime } from '@/utils/format';
 import type { NotificationFeedItem } from '@/types/profile';
 
@@ -70,6 +71,8 @@ export default function NotificationsScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <BottomNavBar />
     </SafeAreaView>
   );
 }

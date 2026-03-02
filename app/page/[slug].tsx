@@ -9,6 +9,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { supabase } from '@/lib/supabase/client';
 import { Loading } from '@/components/ui/Loading';
+import { BottomNavBar } from '@/components/ui/BottomNavBar';
 
 interface PageData {
   title_uk: string;
@@ -106,6 +107,8 @@ export default function CmsPageScreen() {
           </Text>
         )}
       </ScrollView>
+
+      <BottomNavBar />
     </SafeAreaView>
   );
 }
