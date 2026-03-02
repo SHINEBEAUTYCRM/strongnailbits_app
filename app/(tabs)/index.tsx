@@ -26,7 +26,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { CategoryBlockCard } from '@/components/home/CategoryBlockCard';
 import { PromoStrip } from '@/components/home/PromoStrip';
 import { DealOfDaySection } from '@/components/home/DealOfDaySection';
-import { FloatingPetals, March8Banner, isMarch8Season } from '@/components/seasonal';
+import { FloatingPetals, isMarch8Season } from '@/components/seasonal';
 import type { ProductListItem, Category } from '@/types/product';
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
@@ -301,8 +301,6 @@ export default function HomeScreen() {
       >
         {/* Promo Strip */}
         {promo.length > 0 && <PromoStrip banner={promo[0]} />}
-
-        {showSeasonal && <March8Banner />}
 
         {/* Search Bar */}
         <TouchableOpacity
