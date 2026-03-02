@@ -25,7 +25,10 @@ import { trackAddToCart } from '@/lib/analytics/tracker';
 import type { ProductListItem } from '@/types/product';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const GRID_CARD_WIDTH = (SCREEN_WIDTH - spacing.lg * 3) / 2;
+const CARD_GAP = spacing.sm;
+const HORIZONTAL_PADDING = spacing.lg;
+const GRID_CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
+const IMAGE_HEIGHT = GRID_CARD_WIDTH;
 const COMPACT_CARD_WIDTH = 160;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -49,6 +52,7 @@ export const ProductCard = memo(function ProductCard({
   const { showToast } = useToast();
 
   const [addedToCart, setAddedToCart] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* Cleanup timer on unmount */
@@ -63,8 +67,6 @@ export const ProductCard = memo(function ProductCard({
   const discount = product.old_price
     ? formatDiscount(product.price, product.old_price)
     : '';
-  const cardWidth = compact ? COMPACT_CARD_WIDTH : GRID_CARD_WIDTH;
-
   // Card press scale
   const cardScale = useSharedValue(1);
   const cardAnimatedStyle = useAnimatedStyle(() => ({
@@ -156,18 +158,19 @@ export const ProductCard = memo(function ProductCard({
   return (
     <AnimatedPressable
       entering={FadeInDown.delay(index * 60).duration(400).springify().damping(14)}
-      style={[styles.card, shadows.sm, { width: cardWidth }, cardAnimatedStyle]}
+      style={[styles.card, shadows.sm, compact && { width: COMPACT_CARD_WIDTH }, cardAnimatedStyle]}
       onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
     >
-      <View style={[styles.imageContainer, { width: cardWidth, height: cardWidth }]}>
+      <View style={[styles.imageContainer, { height: compact ? COMPACT_CARD_WIDTH : IMAGE_HEIGHT }]}>
         <Image
-          source={{ uri: product.main_image_url ?? undefined }}
+          source={imageError || !product.main_image_url ? require('../../../assets/images/icon.png') : { uri: product.main_image_url }}
           style={styles.image}
           contentFit="contain"
           transition={200}
           placeholder={require('../../../assets/images/icon.png')}
+          onError={() => setImageError(true)}
         />
 
         {discount ? (
