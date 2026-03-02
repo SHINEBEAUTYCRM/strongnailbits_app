@@ -250,8 +250,8 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {/* Glass Header */}
       <Animated.View style={[styles.header, styles.headerShadow, headerAnimatedStyle]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={styles.logoShine}>SHINE </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+          <Text style={styles.logoShine}>SHINE</Text>
           <Text style={styles.logoShop}>SHOP</Text>
         </View>
         <View style={styles.headerActions}>
@@ -364,13 +364,14 @@ const styles = StyleSheet.create({
   },
   logoShine: {
     fontSize: 20,
-    fontFamily: 'Unbounded-Bold',
-    color: colors.dark,
+    fontFamily: 'Unbounded-Black',
+    color: '#1a1a1a',
   },
   logoShop: {
     fontSize: 20,
-    fontFamily: 'Unbounded-Bold',
+    fontFamily: 'Unbounded-Black',
     color: '#D6264A',
+    marginLeft: 6,
   },
   headerActions: {
     flexDirection: 'row',
