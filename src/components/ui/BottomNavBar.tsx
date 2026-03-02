@@ -9,6 +9,7 @@ import Animated, {
   withSequence,
   withSpring,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { colors } from '@/theme';
 import { useCartStore } from '@/stores/cart';
 import { useWishlistStore } from '@/stores/wishlist';
@@ -68,7 +69,10 @@ export function BottomNavBar() {
           <TouchableOpacity
             key={tab.key}
             style={styles.tab}
-            onPress={() => router.navigate(tab.route as any)}
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.navigate(tab.route as any);
+            }}
             activeOpacity={0.7}
           >
             <View>

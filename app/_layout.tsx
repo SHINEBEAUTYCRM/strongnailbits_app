@@ -120,20 +120,21 @@ function RootLayout() {
               screenOptions={{
                 headerShown: false,
                 contentStyle: { backgroundColor: colors.pearl },
-                animation: 'slide_from_right',
+                animation: 'ios_from_right',
+                animationDuration: 350,
                 gestureEnabled: true,
                 gestureDirection: 'horizontal',
                 fullScreenGestureEnabled: true,
               }}
             >
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'none' }} />
               <Stack.Screen
                 name="(auth)"
-                options={{ headerShown: false, presentation: 'modal' }}
+                options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom', animationDuration: 300 }}
               />
               <Stack.Screen name="product/[slug]" />
               <Stack.Screen name="checkout" />
-              <Stack.Screen name="search" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="search" options={{ presentation: 'modal', animation: 'fade_from_bottom', animationDuration: 250 }} />
               <Stack.Screen name="notifications" />
               <Stack.Screen name="brands" />
               <Stack.Screen name="page/[slug]" />

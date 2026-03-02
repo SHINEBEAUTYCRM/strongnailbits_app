@@ -108,11 +108,11 @@ export const ProductCard = memo(function ProductCard({
   }, [product.slug]);
 
   const handlePressIn = useCallback(() => {
-    cardScale.value = withSpring(0.97, { damping: 15, stiffness: 200 });
+    cardScale.value = withTiming(0.96, { duration: 120, easing: Easing.out(Easing.quad) });
   }, []);
 
   const handlePressOut = useCallback(() => {
-    cardScale.value = withSpring(1, { damping: 15, stiffness: 200 });
+    cardScale.value = withSpring(1, { damping: 12, stiffness: 180, mass: 0.8 });
   }, []);
 
   const handleAddToCart = useCallback(() => {
@@ -157,7 +157,7 @@ export const ProductCard = memo(function ProductCard({
 
   return (
     <AnimatedPressable
-      entering={FadeInDown.delay(index * 60).duration(400).springify().damping(14)}
+      entering={FadeInDown.delay(index * 50).duration(450).springify().damping(16)}
       style={[styles.card, shadows.sm, compact && { width: COMPACT_CARD_WIDTH }, cardAnimatedStyle]}
       onPress={handlePress}
       onPressIn={handlePressIn}

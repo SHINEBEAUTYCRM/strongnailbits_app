@@ -39,6 +39,7 @@ export function OrderSummary() {
                 source={{ uri: item.image || undefined }}
                 style={styles.itemImage}
                 contentFit="cover"
+                transition={200}
               />
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName} numberOfLines={1}>

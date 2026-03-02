@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, View, StyleSheet, TouchableOpacity, Text, RefreshControl } from 'react-native';
+import { useScrollToTop } from '@react-navigation/native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedScrollHandler,
   interpolate,
   Extrapolation,
+  FadeInUp,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -60,6 +62,8 @@ const PRODUCT_SELECT =
 
 export default function HomeScreen() {
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const cartCount = useCartStore((s) => s.getCount());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -279,6 +283,7 @@ export default function HomeScreen() {
       </Animated.View>
 
       <AnimatedScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -301,42 +306,53 @@ export default function HomeScreen() {
           <Text style={styles.searchPlaceholder}>Пошук товарів...</Text>
         </TouchableOpacity>
 
-        {/* Quick Categories */}
-        <QuickCategories categories={categories} />
+        <Animated.View entering={FadeInUp.duration(450).springify().damping(18)}>
+          <QuickCategories categories={categories} />
+        </Animated.View>
 
-        {/* Hero Banner */}
-        {banners.length > 0 && <HeroBanner banners={banners} />}
+        {banners.length > 0 && (
+          <Animated.View entering={FadeInUp.delay(80).duration(450).springify().damping(18)}>
+            <HeroBanner banners={banners} />
+          </Animated.View>
+        )}
 
-        {/* Category Blocks */}
-        {categoryBlocks.map((block) => (
-          <CategoryBlockCard key={block.id} block={block} />
+        {categoryBlocks.map((block, idx) => (
+          <Animated.View key={block.id} entering={FadeInUp.delay(160 + idx * 80).duration(450).springify().damping(18)}>
+            <CategoryBlockCard block={block} />
+          </Animated.View>
         ))}
 
-        {/* Deal of Day */}
         {dealData && dealData.products && dealData.products.length > 0 && (
-          <DealOfDaySection deal={dealData} />
+          <Animated.View entering={FadeInUp.delay(240).duration(450).springify().damping(18)}>
+            <DealOfDaySection deal={dealData} />
+          </Animated.View>
         )}
 
-        {/* Popular */}
-        <ProductSection
-          title="Популярні"
-          products={popular}
-          seeAllLink="/(tabs)/catalog"
-        />
+        <Animated.View entering={FadeInUp.delay(320).duration(450).springify().damping(18)}>
+          <ProductSection
+            title="Популярні"
+            products={popular}
+            seeAllLink="/(tabs)/catalog"
+          />
+        </Animated.View>
 
-        {/* Sale */}
         {sale.length > 0 && (
-          <ProductSection title="Розпродаж" products={sale} />
+          <Animated.View entering={FadeInUp.delay(400).duration(450).springify().damping(18)}>
+            <ProductSection title="Розпродаж" products={sale} />
+          </Animated.View>
         )}
 
-        {/* New */}
-        <ProductSection title="Новинки" products={newest} />
+        <Animated.View entering={FadeInUp.delay(480).duration(450).springify().damping(18)}>
+          <ProductSection title="Новинки" products={newest} />
+        </Animated.View>
 
-        {/* Features */}
-        <Features />
+        <Animated.View entering={FadeInUp.delay(560).duration(450).springify().damping(18)}>
+          <Features />
+        </Animated.View>
 
-        {/* B2B CTA */}
-        <B2BCta />
+        <Animated.View entering={FadeInUp.delay(640).duration(450).springify().damping(18)}>
+          <B2BCta />
+        </Animated.View>
       </AnimatedScrollView>
     </SafeAreaView>
   );

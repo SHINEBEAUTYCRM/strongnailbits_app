@@ -101,6 +101,7 @@ export function ProductGallery({ images, name }: ProductGalleryProps) {
                 source={{ uri: item.url || undefined }}
                 style={styles.fullscreenImage}
                 contentFit="contain"
+                transition={300}
               />
             )}
             keyExtractor={(_, index) => `fs-${index}`}

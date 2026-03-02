@@ -6,6 +6,7 @@ import Animated, {
   withSequence,
   withSpring,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { Tabs } from 'expo-router';
 import { Home, LayoutGrid, ShoppingCart, Heart, User } from 'lucide-react-native';
 import { colors } from '@/theme';
@@ -68,6 +69,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        freezeOnBlur: true,
         tabBarActiveTintColor: colors.coral,
         tabBarInactiveTintColor: colors.darkTertiary,
         tabBarStyle: {
@@ -85,6 +87,11 @@ export default function TabsLayout() {
         tabBarLabelStyle: {
           fontSize: 10,
           fontFamily: 'Inter-Medium',
+        },
+      }}
+      screenListeners={{
+        tabPress: () => {
+          Haptics.selectionAsync();
         },
       }}
     >

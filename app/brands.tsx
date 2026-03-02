@@ -91,6 +91,7 @@ export default function BrandsScreen() {
                 source={{ uri: item.logo_url }}
                 style={styles.brandLogo}
                 contentFit="contain"
+                transition={200}
               />
             )}
             <Text style={styles.brandName}>{item.name}</Text>
