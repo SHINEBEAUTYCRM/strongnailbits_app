@@ -41,7 +41,7 @@ export function ProductGrid({
         </View>
       )}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={[styles.container, { flexGrow: 1 }]}
+      contentContainerStyle={styles.container}
       columnWrapperStyle={styles.row}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.5}
@@ -73,7 +73,6 @@ export function ProductGrid({
 
 const styles = StyleSheet.create({
   skeletonContainer: {
-    flex: 1,
     paddingTop: spacing.lg,
     backgroundColor: colors.pearl,
   },

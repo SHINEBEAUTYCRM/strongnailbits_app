@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, SlidersHorizontal, ArrowUpDown, X, ChevronRight, ChevronDown } from 'lucide-react-native';
+import { ArrowLeft, SlidersHorizontal, ArrowUpDown, X, ChevronRight } from 'lucide-react-native';
 import { colors, fontSizes, spacing } from '@/theme';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCategoryTree, getDescendantIds } from '@/hooks/useCategoryTree';
@@ -16,31 +16,23 @@ import { Package } from 'lucide-react-native';
 import { getProductWord } from '@/utils/format';
 import type { CatalogFilters, SortOption } from '@/types/product';
 
-const MAX_VISIBLE_SUBCATS = 5;
-
 function SubcategoryList({
   subcategories,
-  language,
   tField,
   onPress,
 }: {
   subcategories: any[];
-  language: string;
   tField: (uk: string, ru: string) => string;
   onPress: (slug: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const hasMore = subcategories.length > MAX_VISIBLE_SUBCATS;
-  const visible = expanded ? subcategories : subcategories.slice(0, MAX_VISIBLE_SUBCATS);
-
   return (
     <View style={styles.subcatsList}>
-      {visible.map((sub: any, index: number) => (
+      {subcategories.map((sub: any, index: number) => (
         <TouchableOpacity
           key={sub.id}
           style={[
             styles.subcatRow,
-            index < visible.length - 1 && styles.subcatRowBorder,
+            index < subcategories.length - 1 && styles.subcatRowBorder,
           ]}
           onPress={() => onPress(sub.slug)}
           activeOpacity={0.6}
@@ -56,18 +48,6 @@ function SubcategoryList({
           </View>
         </TouchableOpacity>
       ))}
-      {hasMore && !expanded && (
-        <TouchableOpacity
-          style={styles.subcatShowAll}
-          onPress={() => setExpanded(true)}
-          activeOpacity={0.6}
-        >
-          <Text style={styles.subcatShowAllText}>
-            {language === 'ru' ? 'Показать все' : 'Показати всі'}
-          </Text>
-          <ChevronDown size={16} color={colors.coral} />
-        </TouchableOpacity>
-      )}
     </View>
   );
 }
@@ -230,7 +210,6 @@ export default function CategoryProductsScreen() {
           subcategories.length > 0 ? (
             <SubcategoryList
               subcategories={subcategories}
-              language={language}
               tField={tField}
               onPress={(subSlug: string) => router.push(`/(tabs)/catalog/${subSlug}`)}
             />
@@ -415,19 +394,5 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     fontFamily: 'Inter-Regular',
     color: colors.darkTertiary,
-  },
-  subcatShowAll: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    gap: 4,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#f0f0f0',
-  },
-  subcatShowAllText: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Inter-Medium',
-    color: colors.coral,
   },
 });
