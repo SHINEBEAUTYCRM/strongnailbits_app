@@ -13,7 +13,7 @@ import Animated, {
 import { Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { Heart, Check } from 'lucide-react-native';
+import { Heart, Check, Camera } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { colors, spacing, shadows } from '@/theme';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -164,14 +164,22 @@ export const ProductCard = memo(function ProductCard({
       onPressOut={handlePressOut}
     >
       <View style={[styles.imageContainer, { height: compact ? COMPACT_CARD_WIDTH : IMAGE_HEIGHT }]}>
-        <Image
-          source={imageError || !product.main_image_url ? require('../../../assets/images/icon.png') : { uri: product.main_image_url }}
-          style={styles.image}
-          contentFit="contain"
-          transition={200}
-          placeholder={require('../../../assets/images/icon.png')}
-          onError={() => setImageError(true)}
-        />
+        {product.main_image_url && !imageError ? (
+          <Image
+            source={{ uri: product.main_image_url }}
+            style={styles.image}
+            contentFit="contain"
+            transition={200}
+            cachePolicy="memory-disk"
+            recyclingKey={product.id}
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <View style={styles.noImagePlaceholder}>
+            <Camera size={28} color="#BDBDBD" />
+            <Text style={styles.noImageText}>Фото готується</Text>
+          </View>
+        )}
 
         {discount ? (
           <Animated.View style={[styles.discountBadge, badgeAnimatedStyle]}>
@@ -409,5 +417,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Inter-Regular',
     color: colors.green,
+  },
+  noImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+  },
+  noImageText: {
+    fontSize: 11,
+    fontFamily: 'Inter-Regular',
+    color: '#9E9E9E',
   },
 });

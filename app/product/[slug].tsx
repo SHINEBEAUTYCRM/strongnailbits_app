@@ -266,18 +266,30 @@ export default function ProductScreen() {
           <View style={styles.divider} />
 
           {/* Properties */}
-          {hasProperties && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Характеристики</Text>
-              {Object.entries(product.properties!).map(([key, value]) => (
-                <View key={key} style={styles.propRow}>
-                  <Text style={styles.propKey}>{key}</Text>
-                  <View style={styles.propDots} />
-                  <Text style={styles.propValue}>{String(value)}</Text>
-                </View>
-              ))}
-            </View>
-          )}
+          {hasProperties && (() => {
+            const filtered = Object.entries(product.properties!).filter(
+              ([key, value]) => {
+                if (key.startsWith('!')) return false;
+                const str = String(value ?? '').trim();
+                if (str === 'N' || str === 'Y' || str === 'n' || str === 'y') return false;
+                if (!str) return false;
+                return true;
+              }
+            );
+            if (filtered.length === 0) return null;
+            return (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Характеристики</Text>
+                {filtered.map(([key, value]) => (
+                  <View key={key} style={styles.propRow}>
+                    <Text style={styles.propKey}>{key}</Text>
+                    <View style={styles.propDots} />
+                    <Text style={styles.propValue}>{String(value)}</Text>
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
 
           {/* Description */}
           {description && (

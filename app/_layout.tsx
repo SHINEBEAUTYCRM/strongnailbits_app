@@ -89,12 +89,11 @@ function RootLayout() {
           'JetBrainsMono-Bold': require('../assets/fonts/JetBrainsMono-Bold.ttf'),
         });
         setFontsLoaded(true);
+        await SplashScreen.hideAsync();
 
-        // Initialize auth
-        await initialize();
+        initialize().catch((err) => console.error('Auth init error:', err));
       } catch (error) {
         console.error('Failed to load resources:', error);
-      } finally {
         await SplashScreen.hideAsync();
       }
     }

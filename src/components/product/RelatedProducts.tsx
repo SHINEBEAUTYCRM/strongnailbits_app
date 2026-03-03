@@ -26,7 +26,7 @@ export function RelatedProducts({ products }: RelatedProductsProps) {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <View style={styles.cardWrapper}>
-            <ProductCard product={item} />
+            <ProductCard product={item} compact />
           </View>
         )}
         keyExtractor={(item) => item.id}
