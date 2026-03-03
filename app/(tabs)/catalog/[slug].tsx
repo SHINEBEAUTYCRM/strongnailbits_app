@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet } from 'react-native';
-import { Image } from 'expo-image';
+import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, SlidersHorizontal, ArrowUpDown, X } from 'lucide-react-native';
+import { ArrowLeft, SlidersHorizontal, ArrowUpDown, X, ChevronRight, ChevronDown } from 'lucide-react-native';
 import { colors, fontSizes, spacing } from '@/theme';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCategoryTree, getDescendantIds } from '@/hooks/useCategoryTree';
@@ -16,6 +15,62 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Package } from 'lucide-react-native';
 import { getProductWord } from '@/utils/format';
 import type { CatalogFilters, SortOption } from '@/types/product';
+
+const MAX_VISIBLE_SUBCATS = 5;
+
+function SubcategoryList({
+  subcategories,
+  language,
+  tField,
+  onPress,
+}: {
+  subcategories: any[];
+  language: string;
+  tField: (uk: string, ru: string) => string;
+  onPress: (slug: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasMore = subcategories.length > MAX_VISIBLE_SUBCATS;
+  const visible = expanded ? subcategories : subcategories.slice(0, MAX_VISIBLE_SUBCATS);
+
+  return (
+    <View style={styles.subcatsList}>
+      {visible.map((sub: any, index: number) => (
+        <TouchableOpacity
+          key={sub.id}
+          style={[
+            styles.subcatRow,
+            index < visible.length - 1 && styles.subcatRowBorder,
+          ]}
+          onPress={() => onPress(sub.slug)}
+          activeOpacity={0.6}
+        >
+          <Text style={styles.subcatRowName}>
+            {tField(sub.name_uk, sub.name_ru)}
+          </Text>
+          <View style={styles.subcatRowRight}>
+            {sub.product_count > 0 && (
+              <Text style={styles.subcatRowCount}>{sub.product_count}</Text>
+            )}
+            <ChevronRight size={18} color={colors.darkTertiary} />
+          </View>
+        </TouchableOpacity>
+      ))}
+      {hasMore && !expanded && (
+        <TouchableOpacity
+          style={styles.subcatShowAll}
+          onPress={() => setExpanded(true)}
+          activeOpacity={0.6}
+        >
+          <Text style={styles.subcatShowAllText}>
+            {language === 'ru' ? 'Показать все' : 'Показати всі'}
+          </Text>
+          <ChevronDown size={16} color={colors.coral} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
 
 export default function CategoryProductsScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -161,37 +216,12 @@ export default function CategoryProductsScreen() {
 
       {/* Subcategories */}
       {subcategories.length > 0 && (
-        <View style={styles.subcatsWrap}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.subcatsScroll}
-          >
-            {subcategories.map((sub: any) => (
-              <TouchableOpacity
-                key={sub.id}
-                style={styles.subcatChip}
-                onPress={() => router.push(`/(tabs)/catalog/${sub.slug}`)}
-                activeOpacity={0.7}
-              >
-                {sub.image_url && (
-                  <Image
-                    source={{ uri: sub.image_url }}
-                    style={styles.subcatImage}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                )}
-                <Text style={styles.subcatName} numberOfLines={1}>
-                  {sub.name_uk}
-                </Text>
-                {sub.product_count > 0 && (
-                  <Text style={styles.subcatCount}>{sub.product_count}</Text>
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        <SubcategoryList
+          subcategories={subcategories}
+          language={language}
+          tField={tField}
+          onPress={(subSlug: string) => router.push(`/(tabs)/catalog/${subSlug}`)}
+        />
       )}
 
       {/* Products Grid */}
@@ -351,42 +381,53 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
     color: colors.coral,
   },
-  subcatsWrap: {
+  subcatsList: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
     backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    paddingVertical: 10,
+    borderRadius: 12,
+    padding: spacing.sm,
   },
-  subcatsScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
+  subcatRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: spacing.sm,
   },
-  subcatChip: {
+  subcatRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#f0f0f0',
+  },
+  subcatRowName: {
+    flex: 1,
+    fontSize: fontSizes.sm,
+    fontFamily: 'Inter-Medium',
+    color: colors.dark,
+    marginRight: spacing.sm,
+  },
+  subcatRowRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    backgroundColor: colors.white,
   },
-  subcatImage: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-  },
-  subcatName: {
-    fontSize: 12,
-    fontFamily: 'Inter-Medium',
-    color: colors.dark,
-    maxWidth: 100,
-  },
-  subcatCount: {
-    fontSize: 10,
+  subcatRowCount: {
+    fontSize: fontSizes.xs,
     fontFamily: 'Inter-Regular',
     color: colors.darkTertiary,
+  },
+  subcatShowAll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    gap: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#f0f0f0',
+  },
+  subcatShowAllText: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Inter-Medium',
+    color: colors.coral,
   },
 });
