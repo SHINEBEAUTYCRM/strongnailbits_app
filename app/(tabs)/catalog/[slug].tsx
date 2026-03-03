@@ -184,7 +184,7 @@ export default function CategoryProductsScreen() {
       {parentCategory && (
         <TouchableOpacity
           style={styles.breadcrumb}
-          onPress={() => router.push(`/(tabs)/catalog/${parentCategory.slug}`)}
+          onPress={() => router.back()}
           activeOpacity={0.7}
         >
           <Text style={styles.breadcrumbText}>
