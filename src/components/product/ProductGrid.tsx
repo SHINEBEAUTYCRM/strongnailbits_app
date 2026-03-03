@@ -31,17 +31,9 @@ export function ProductGrid({
   ListHeaderComponent,
   ListEmptyComponent,
 }: ProductGridProps) {
-  if (isLoading) {
-    return (
-      <View style={styles.skeletonContainer}>
-        <SkeletonGrid count={6} />
-      </View>
-    );
-  }
-
   return (
     <FlatList
-      data={products}
+      data={isLoading ? [] : products}
       numColumns={2}
       renderItem={({ item, index }) => (
         <View style={[styles.cardWrapper, index % 2 === 0 ? styles.cardLeft : styles.cardRight]}>
@@ -49,14 +41,22 @@ export function ProductGrid({
         </View>
       )}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[styles.container, { flexGrow: 1 }]}
       columnWrapperStyle={styles.row}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.5}
       onRefresh={onRefresh}
       refreshing={refreshing}
       ListHeaderComponent={ListHeaderComponent}
-      ListEmptyComponent={ListEmptyComponent}
+      ListEmptyComponent={
+        isLoading ? (
+          <View style={styles.skeletonContainer}>
+            <SkeletonGrid count={6} />
+          </View>
+        ) : (
+          ListEmptyComponent
+        )
+      }
       ListFooterComponent={
         isLoadingMore ? (
           <View style={styles.footer}>
@@ -64,7 +64,7 @@ export function ProductGrid({
           </View>
         ) : null
       }
-      removeClippedSubviews
+      removeClippedSubviews={false}
       maxToRenderPerBatch={8}
       windowSize={5}
     />
