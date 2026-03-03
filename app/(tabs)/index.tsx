@@ -7,7 +7,6 @@ import Animated, {
   useAnimatedScrollHandler,
   interpolate,
   Extrapolation,
-  FadeInUp,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -313,53 +312,33 @@ export default function HomeScreen() {
           <Text style={styles.searchPlaceholder}>Пошук товарів...</Text>
         </TouchableOpacity>
 
-        <Animated.View entering={FadeInUp.duration(450).springify().damping(18)}>
-          <QuickCategories categories={categories} />
-        </Animated.View>
+        <QuickCategories categories={categories} />
 
-        {banners.length > 0 && (
-          <Animated.View entering={FadeInUp.delay(80).duration(450).springify().damping(18)}>
-            <HeroBanner banners={banners} />
-          </Animated.View>
-        )}
+        {banners.length > 0 && <HeroBanner banners={banners} />}
 
-        {categoryBlocks.map((block, idx) => (
-          <Animated.View key={block.id} entering={FadeInUp.delay(160 + idx * 80).duration(450).springify().damping(18)}>
-            <CategoryBlockCard block={block} />
-          </Animated.View>
+        {categoryBlocks.map((block) => (
+          <CategoryBlockCard key={block.id} block={block} />
         ))}
 
         {dealData && dealData.products && dealData.products.length > 0 && (
-          <Animated.View entering={FadeInUp.delay(240).duration(450).springify().damping(18)}>
-            <DealOfDaySection deal={dealData} />
-          </Animated.View>
+          <DealOfDaySection deal={dealData} />
         )}
 
-        <Animated.View entering={FadeInUp.delay(320).duration(450).springify().damping(18)}>
-          <ProductSection
-            title="Популярні"
-            products={popular}
-            seeAllLink="/(tabs)/catalog"
-          />
-        </Animated.View>
+        <ProductSection
+          title="Популярні"
+          products={popular}
+          seeAllLink="/(tabs)/catalog"
+        />
 
         {sale.length > 0 && (
-          <Animated.View entering={FadeInUp.delay(400).duration(450).springify().damping(18)}>
-            <ProductSection title="Розпродаж" products={sale} />
-          </Animated.View>
+          <ProductSection title="Розпродаж" products={sale} />
         )}
 
-        <Animated.View entering={FadeInUp.delay(480).duration(450).springify().damping(18)}>
-          <ProductSection title="Новинки" products={newest} />
-        </Animated.View>
+        <ProductSection title="Новинки" products={newest} />
 
-        <Animated.View entering={FadeInUp.delay(560).duration(450).springify().damping(18)}>
-          <Features />
-        </Animated.View>
+        <Features />
 
-        <Animated.View entering={FadeInUp.delay(640).duration(450).springify().damping(18)}>
-          <B2BCta />
-        </Animated.View>
+        <B2BCta />
       </AnimatedScrollView>
     </SafeAreaView>
   );

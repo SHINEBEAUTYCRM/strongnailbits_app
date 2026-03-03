@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { getSearchVariants } from '@/utils/search-helpers';
+import { sortByPriority } from '@/hooks/useProducts';
 import type { ProductListItem, Brand } from '@/types/product';
 
 const DEBOUNCE_MS = 300;
@@ -67,7 +68,7 @@ export function useSearch() {
           .limit(10),
       ]);
 
-      setProducts((productsRes.data ?? []) as ProductListItem[]);
+      setProducts(sortByPriority((productsRes.data ?? []) as ProductListItem[]));
       setBrands((brandsRes.data ?? []) as Brand[]);
     } catch (error) {
       console.error('Search error:', error);

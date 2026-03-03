@@ -1,16 +1,11 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Pressable } from 'react-native';
 import Animated, {
-  FadeInDown,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withSequence,
-  withTiming,
-  withRepeat,
-  Easing,
 } from 'react-native-reanimated';
-import { Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { Heart, Check, Camera } from 'lucide-react-native';
@@ -31,7 +26,6 @@ const GRID_CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
 const IMAGE_HEIGHT = GRID_CARD_WIDTH;
 const COMPACT_CARD_WIDTH = 160;
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface ProductCardProps {
   product: ProductListItem;
@@ -42,7 +36,6 @@ interface ProductCardProps {
 export const ProductCard = memo(function ProductCard({
   product,
   compact,
-  index = 0,
 }: ProductCardProps) {
   const router = useRouter();
   const { tField } = useLanguage();
@@ -67,53 +60,15 @@ export const ProductCard = memo(function ProductCard({
   const discount = product.old_price
     ? formatDiscount(product.price, product.old_price)
     : '';
-  // Card press scale
-  const cardScale = useSharedValue(1);
-  const cardAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: cardScale.value }],
-  }));
 
-  // Wishlist heart scale
   const heartScale = useSharedValue(1);
   const heartAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: heartScale.value }],
   }));
 
-  // Cart button color transition
-  const cartButtonBg = useAnimatedStyle(() => ({
-    backgroundColor: addedToCart ? colors.green : colors.coral,
-  }));
-
-  // Discount badge pulse
-  const badgeScale = useSharedValue(1);
-  React.useEffect(() => {
-    if (discount) {
-      badgeScale.value = withRepeat(
-        withSequence(
-          withTiming(1.06, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        ),
-        -1,
-        true,
-      );
-    }
-  }, [discount]);
-
-  const badgeAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: badgeScale.value }],
-  }));
-
   const handlePress = useCallback(() => {
     router.push(`/product/${product.slug}`);
   }, [product.slug]);
-
-  const handlePressIn = useCallback(() => {
-    cardScale.value = withTiming(0.96, { duration: 120, easing: Easing.out(Easing.quad) });
-  }, []);
-
-  const handlePressOut = useCallback(() => {
-    cardScale.value = withSpring(1, { damping: 12, stiffness: 180, mass: 0.8 });
-  }, []);
 
   const handleAddToCart = useCallback(() => {
     if (isOutOfStock || addedToCart) return;
@@ -156,12 +111,9 @@ export const ProductCard = memo(function ProductCard({
   }, [product, name]);
 
   return (
-    <AnimatedPressable
-      entering={FadeInDown.delay(index * 50).duration(450).springify().damping(16)}
-      style={[styles.card, shadows.sm, compact && { width: COMPACT_CARD_WIDTH }, cardAnimatedStyle]}
+    <Pressable
+      style={[styles.card, shadows.sm, compact && { width: COMPACT_CARD_WIDTH }]}
       onPress={handlePress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
     >
       <View style={[styles.imageContainer, { height: compact ? COMPACT_CARD_WIDTH : IMAGE_HEIGHT }]}>
         {product.main_image_url && !imageError ? (
@@ -181,9 +133,9 @@ export const ProductCard = memo(function ProductCard({
         )}
 
         {discount ? (
-          <Animated.View style={[styles.discountBadge, badgeAnimatedStyle]}>
+          <View style={styles.discountBadge}>
             <Text style={styles.discountText}>{discount}</Text>
-          </Animated.View>
+          </View>
         ) : null}
 
         {!discount && product.is_new && (
@@ -276,7 +228,7 @@ export const ProductCard = memo(function ProductCard({
           )}
         </Pressable>
       </View>
-    </AnimatedPressable>
+    </Pressable>
   );
 });
 
