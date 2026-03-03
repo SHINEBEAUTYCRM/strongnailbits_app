@@ -27,6 +27,7 @@ import { CategoryBlockCard } from '@/components/home/CategoryBlockCard';
 import { PromoStrip } from '@/components/home/PromoStrip';
 import { DealOfDaySection } from '@/components/home/DealOfDaySection';
 import { FloatingPetals, isMarch8Season } from '@/components/seasonal';
+import { sortByPriority } from '@/hooks/useProducts';
 import type { ProductListItem, Category } from '@/types/product';
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
@@ -130,9 +131,9 @@ export default function HomeScreen() {
 
       setBanners(bannersRes.data ?? []);
       setCategories((categoriesRes.data ?? []) as Category[]);
-      setPopular((popularRes.data ?? []) as ProductListItem[]);
-      setSale((saleRes.data ?? []) as ProductListItem[]);
-      setNewest((newestRes.data ?? []) as ProductListItem[]);
+      setPopular(sortByPriority((popularRes.data ?? []) as ProductListItem[]));
+      setSale(sortByPriority((saleRes.data ?? []) as ProductListItem[]));
+      setNewest(sortByPriority((newestRes.data ?? []) as ProductListItem[]));
     } catch (err) {
       console.error('Failed to load home data:', err);
       setError(true);
@@ -176,9 +177,9 @@ export default function HomeScreen() {
           .order('created_at', { ascending: false }).limit(20),
       ]);
 
-      setPopular((popularRes.data ?? []) as ProductListItem[]);
-      setSale((saleRes.data ?? []) as ProductListItem[]);
-      setNewest((newestRes.data ?? []) as ProductListItem[]);
+      setPopular(sortByPriority((popularRes.data ?? []) as ProductListItem[]));
+      setSale(sortByPriority((saleRes.data ?? []) as ProductListItem[]));
+      setNewest(sortByPriority((newestRes.data ?? []) as ProductListItem[]));
 
     } catch (apiError) {
       console.warn('[Home] API failed, using fallback:', apiError);

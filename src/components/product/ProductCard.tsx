@@ -169,7 +169,6 @@ export const ProductCard = memo(function ProductCard({
             source={{ uri: product.main_image_url }}
             style={styles.image}
             contentFit="contain"
-            transition={200}
             cachePolicy="memory-disk"
             recyclingKey={product.id}
             onError={() => setImageError(true)}

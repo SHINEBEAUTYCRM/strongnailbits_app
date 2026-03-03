@@ -9,7 +9,7 @@ const PAGE_SIZE = 20;
  * Priority: 0 = has image + in stock, 1 = has image + out of stock,
  *           2 = no image + in stock, 3 = no image + out of stock.
  */
-function sortByPriority(items: ProductListItem[]): ProductListItem[] {
+export function sortByPriority(items: ProductListItem[]): ProductListItem[] {
   return [...items].sort((a, b) => {
     const pa = (a.main_image_url ? 0 : 2) + ((a.quantity ?? 0) > 0 ? 0 : 1);
     const pb = (b.main_image_url ? 0 : 2) + ((b.quantity ?? 0) > 0 ? 0 : 1);
