@@ -214,16 +214,6 @@ export default function CategoryProductsScreen() {
         </View>
       </View>
 
-      {/* Subcategories */}
-      {subcategories.length > 0 && (
-        <SubcategoryList
-          subcategories={subcategories}
-          language={language}
-          tField={tField}
-          onPress={(subSlug: string) => router.push(`/(tabs)/catalog/${subSlug}`)}
-        />
-      )}
-
       {/* Products Grid */}
       <ProductGrid
         products={products}
@@ -236,6 +226,16 @@ export default function CategoryProductsScreen() {
           setRefreshing(false);
         }}
         refreshing={refreshing}
+        ListHeaderComponent={
+          subcategories.length > 0 ? (
+            <SubcategoryList
+              subcategories={subcategories}
+              language={language}
+              tField={tField}
+              onPress={(subSlug: string) => router.push(`/(tabs)/catalog/${subSlug}`)}
+            />
+          ) : undefined
+        }
         ListEmptyComponent={
           <EmptyState
             icon={<Package size={48} color={colors.darkTertiary} />}
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   },
   subcatsList: {
     marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
+    marginVertical: spacing.md,
     backgroundColor: colors.white,
     borderRadius: 12,
     padding: spacing.sm,
