@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -187,10 +187,25 @@ export default function RegisterScreen() {
     if (otp.length < 4) return;
     setIsLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('verify-otp', {
+      const { data, error } = await supabase.functions.invoke('verify-otp', {
         body: { phone: phone.replace(/\D/g, ''), code: otp },
       });
       if (error) throw error;
+
+      if (data?.existingUser && data?.hasAuth) {
+        Alert.alert(
+          language === 'ru' ? 'Аккаунт найден' : 'Акаунт знайдено',
+          language === 'ru'
+            ? 'Этот номер уже зарегистрирован. Войти с паролем?'
+            : 'Цей номер вже зареєстрований. Увійти з паролем?',
+          [
+            { text: language === 'ru' ? 'Отмена' : 'Скасувати', style: 'cancel' },
+            { text: language === 'ru' ? 'Войти' : 'Увійти', onPress: () => router.replace('/(auth)/login') },
+          ]
+        );
+        return;
+      }
+
       setStep('register');
     } catch {
       showToast(language === 'ru' ? 'Неверный код' : 'Невірний код', 'error');
@@ -221,12 +236,38 @@ export default function RegisterScreen() {
       });
       if (error) throw error;
 
+      // Scenario A: user already fully registered
+      if (data?.exists) {
+        Alert.alert(
+          language === 'ru' ? 'Аккаунт найден' : 'Акаунт знайдено',
+          language === 'ru'
+            ? 'Этот номер уже зарегистрирован. Войти с паролем?'
+            : 'Цей номер вже зареєстрований. Увійти з паролем?',
+          [
+            { text: language === 'ru' ? 'Отмена' : 'Скасувати', style: 'cancel' },
+            { text: language === 'ru' ? 'Войти' : 'Увійти', onPress: () => router.replace('/(auth)/login') },
+          ]
+        );
+        return;
+      }
+
+      // Scenario B (claimed) or C (new) — auto-login
       if (data?.loginEmail) {
         await supabase.auth.signInWithPassword({
           email: data.loginEmail,
           password: formData.password,
         });
         await initialize();
+
+        if (data.claimed) {
+          showToast(
+            language === 'ru'
+              ? 'Нашли ваш аккаунт! Бонусы и заказы сохранены'
+              : 'Знайшли ваш акаунт! Бонуси та замовлення збережені',
+            'success'
+          );
+        }
+
         router.replace('/(tabs)/account');
       }
     } catch {

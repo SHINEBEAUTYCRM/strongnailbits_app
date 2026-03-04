@@ -313,13 +313,21 @@ export default function LoginScreen() {
       });
       if (error) throw error;
 
-      if (data?.existingUser && data?.loginEmail) {
+      if (data?.existingUser && data?.hasAuth && data?.loginEmail) {
         setLoginEmail(data.loginEmail);
         setStep('otp_password');
         showToast(
           language === 'ru' ? 'Код подтверждён. Введите пароль.' : 'Код підтверджено. Введіть пароль.',
           'success'
         );
+      } else if (data?.existingUser && !data?.hasAuth) {
+        showToast(
+          language === 'ru'
+            ? 'Нашли ваш аккаунт! Создайте пароль для входа.'
+            : 'Знайшли ваш акаунт! Створіть пароль для входу.',
+          'info'
+        );
+        router.replace('/(auth)/register');
       } else {
         showToast(
           language === 'ru' ? 'Пользователь не найден. Зарегистрируйтесь.' : 'Користувача не знайдено. Зареєструйтесь.',

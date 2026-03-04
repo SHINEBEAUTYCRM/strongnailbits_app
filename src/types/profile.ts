@@ -4,7 +4,6 @@ export interface Profile {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
-  login_email: string | null;
   company: string | null;
   is_b2b: boolean;
   loyalty_points: number;

@@ -34,6 +34,22 @@ function isRateLimited(map: Map<string, number[]>, key: string, max: number): bo
   return false;
 }
 
+// Normalize phone to 380XXXXXXXXX format (identical to website logic)
+function normalizePhone(phone: string): string | null {
+  if (!phone || typeof phone !== 'string') return null;
+  const digits = phone.replace(/[^\d]/g, '');
+  if (digits.length === 9) return '380' + digits;
+  if (digits.length === 10 && digits.startsWith('0')) return '38' + digits;
+  if (digits.length === 11 && digits.startsWith('80')) return '3' + digits;
+  if (digits.length === 12 && digits.startsWith('380')) return digits;
+  return null;
+}
+
+function phoneVariants(normalized: string): string[] {
+  const nineDigits = normalized.slice(3);
+  return [normalized, '0' + nineDigits, nineDigits, '+' + normalized];
+}
+
 serve(async (req) => {
   const cors = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -54,17 +70,11 @@ serve(async (req) => {
     const body = await req.json();
     const { phone, code } = body;
 
-    // === VALIDATE phone ===
-    if (!phone || typeof phone !== 'string') {
+    // === VALIDATE & NORMALIZE phone ===
+    const normalized = normalizePhone(phone);
+    if (!normalized) {
       return new Response(
-        JSON.stringify({ verified: false, error: 'Невірний номер' }),
-        { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } }
-      );
-    }
-    const cleanPhone = phone.replace(/[\s\-()]/g, '');
-    if (!/^\+?[0-9]{10,15}$/.test(cleanPhone)) {
-      return new Response(
-        JSON.stringify({ verified: false, error: 'Невірний формат номера' }),
+        JSON.stringify({ verified: false, error: 'Невірний номер телефону' }),
         { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } }
       );
     }
@@ -78,7 +88,7 @@ serve(async (req) => {
     }
 
     // Rate limit by phone (brute-force protection)
-    if (isRateLimited(phoneAttempts, cleanPhone, MAX_PHONE_ATTEMPTS)) {
+    if (isRateLimited(phoneAttempts, normalized, MAX_PHONE_ATTEMPTS)) {
       return new Response(
         JSON.stringify({ verified: false, error: 'Забагато спроб для цього номера. Зачекайте 15 хвилин.' }),
         { status: 429, headers: { ...cors, 'Content-Type': 'application/json' } }
@@ -94,7 +104,7 @@ serve(async (req) => {
     const { data: otpRecord } = await supabase
       .from('otp_codes')
       .select('id, attempts')
-      .eq('phone', cleanPhone)
+      .eq('phone', normalized)
       .eq('code', code)
       .eq('used', false)
       .gte('expires_at', new Date().toISOString())
@@ -107,7 +117,7 @@ serve(async (req) => {
       const { data: activeCodes } = await supabase
         .from('otp_codes')
         .select('id, attempts')
-        .eq('phone', cleanPhone)
+        .eq('phone', normalized)
         .eq('used', false)
         .gte('expires_at', new Date().toISOString());
 
@@ -132,19 +142,35 @@ serve(async (req) => {
     // Mark as used
     await supabase.from('otp_codes').update({ used: true }).eq('id', otpRecord.id);
 
-    // Check if user exists
+    // Check if user exists (search by all phone variants)
+    const variants = phoneVariants(normalized);
+    const orFilter = variants.map(v => `phone.eq.${v}`).join(',');
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, login_email, first_name, last_name')
-      .eq('phone', cleanPhone)
-      .single();
+      .select('id, email, first_name, last_name')
+      .or(orFilter)
+      .limit(1)
+      .maybeSingle();
+
+    if (!profile) {
+      return new Response(
+        JSON.stringify({ verified: true, existingUser: false, hasAuth: false, profile: null, loginEmail: null }),
+        { headers: { ...cors, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if auth user exists for this profile
+    const { data: authUser } = await supabase.auth.admin.getUserById(profile.id);
+    const hasAuth = !!authUser?.user;
+    const resolvedEmail = profile.email || authUser?.user?.email || null;
 
     return new Response(
       JSON.stringify({
         verified: true,
-        existingUser: !!profile,
-        profile: profile ? { id: profile.id, firstName: profile.first_name, lastName: profile.last_name } : null,
-        loginEmail: profile?.login_email ?? null,
+        existingUser: true,
+        hasAuth,
+        profile: { id: profile.id, firstName: profile.first_name, lastName: profile.last_name },
+        loginEmail: resolvedEmail,
       }),
       { headers: { ...cors, 'Content-Type': 'application/json' } }
     );

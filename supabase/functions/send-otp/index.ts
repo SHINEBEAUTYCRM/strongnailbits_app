@@ -33,6 +33,17 @@ function isIpRateLimited(ip: string): boolean {
   return false;
 }
 
+// Normalize phone to 380XXXXXXXXX format (identical to website logic)
+function normalizePhone(phone: string): string | null {
+  if (!phone || typeof phone !== 'string') return null;
+  const digits = phone.replace(/[^\d]/g, '');
+  if (digits.length === 9) return '380' + digits;
+  if (digits.length === 10 && digits.startsWith('0')) return '38' + digits;
+  if (digits.length === 11 && digits.startsWith('80')) return '3' + digits;
+  if (digits.length === 12 && digits.startsWith('380')) return digits;
+  return null;
+}
+
 // Crypto-secure OTP (not Math.random!)
 function generateSecureOTP(): string {
   const array = new Uint32Array(1);
@@ -60,17 +71,11 @@ serve(async (req) => {
     const body = await req.json();
     const { phone } = body;
 
-    // === STRICT phone validation ===
-    if (!phone || typeof phone !== 'string') {
+    // === VALIDATE & NORMALIZE phone ===
+    const cleanPhone = normalizePhone(phone);
+    if (!cleanPhone) {
       return new Response(
-        JSON.stringify({ error: 'Вкажіть номер телефону' }),
-        { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } }
-      );
-    }
-    const cleanPhone = phone.replace(/[\s\-()]/g, '');
-    if (!/^\+?[0-9]{10,15}$/.test(cleanPhone)) {
-      return new Response(
-        JSON.stringify({ error: 'Невірний формат номера телефону' }),
+        JSON.stringify({ error: 'Невірний номер телефону' }),
         { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } }
       );
     }
