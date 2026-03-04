@@ -109,12 +109,11 @@ serve(async (req) => {
         if (!firstName || typeof firstName !== 'string' || firstName.trim().length < 1) {
           return new Response(JSON.stringify({ error: "Вкажіть ім'я" }), { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } });
         }
-        if (!lastName || typeof lastName !== 'string' || lastName.trim().length < 1) {
-          return new Response(JSON.stringify({ error: 'Вкажіть прізвище' }), { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } });
-        }
 
         const safeFirstName = sanitizeText(firstName, 100);
-        const safeLastName = sanitizeText(lastName, 100);
+        const safeLastName = lastName && typeof lastName === 'string' && lastName.trim().length > 0
+          ? sanitizeText(lastName, 100)
+          : null;
         const safeCompany = company ? sanitizeText(String(company), 200) : null;
 
         if (!password || typeof password !== 'string') {

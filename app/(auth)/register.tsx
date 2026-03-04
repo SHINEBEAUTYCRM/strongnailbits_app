@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, Platform, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -10,12 +10,11 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useAuthStore } from '@/stores/auth';
 import { supabase } from '@/lib/supabase/client';
 import { PhoneInput } from '@/components/auth/PhoneInput';
-import { OtpInput } from '@/components/auth/OtpInput';
-import { RegisterForm } from '@/components/auth/RegisterForm';
+import { RegisterForm, RegisterData } from '@/components/auth/RegisterForm';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 
-type Step = 'phone' | 'otp' | 'register' | 'apple_phone';
+type Step = 'form' | 'apple_phone';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -23,18 +22,105 @@ export default function RegisterScreen() {
   const initialize = useAuthStore((s) => s.initialize);
   const { showToast } = useToast();
 
-  const [step, setStep] = useState<Step>('phone');
+  const [step, setStep] = useState<Step>('form');
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<RegisterData>({
     firstName: '',
     lastName: '',
     company: '',
     password: '',
+    confirmPassword: '',
   });
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof RegisterData, string>>>({});
 
   const [appleUserId, setAppleUserId] = useState<string | null>(null);
+
+  const t = (ru: string, uk: string) => (language === 'ru' ? ru : uk);
+
+  // ─── Validation ───
+  const validate = (): boolean => {
+    const errors: Partial<Record<keyof RegisterData, string>> = {};
+    const digits = phone.replace(/\D/g, '');
+
+    if (digits.length < 12) {
+      showToast(t('Введите корректный номер', 'Введіть коректний номер'), 'error');
+      return false;
+    }
+
+    if (!formData.firstName.trim()) {
+      errors.firstName = t("Введите имя", "Введіть ім'я");
+    }
+
+    if (!formData.password || formData.password.length < 6) {
+      errors.password = t('Минимум 6 символов', 'Мінімум 6 символів');
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      errors.confirmPassword = t('Пароли не совпадают', 'Паролі не збігаються');
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // ─── Register ───
+  const handleRegister = async () => {
+    if (!validate()) return;
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('phone-auth', {
+        body: {
+          phone: phone.replace(/\D/g, ''),
+          action: 'register',
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim() || null,
+          company: formData.company.trim() || null,
+          password: formData.password,
+        },
+      });
+      if (error) throw error;
+
+      if (data?.exists) {
+        Alert.alert(
+          t('Аккаунт найден', 'Акаунт знайдено'),
+          t(
+            'Этот номер уже зарегистрирован. Войти с паролем?',
+            'Цей номер вже зареєстрований. Увійти з паролем?',
+          ),
+          [
+            { text: t('Отмена', 'Скасувати'), style: 'cancel' },
+            { text: t('Войти', 'Увійти'), onPress: () => router.replace('/(auth)/login') },
+          ],
+        );
+        return;
+      }
+
+      if (data?.loginEmail) {
+        if (data.claimed) {
+          showToast(
+            t(
+              'Нашли ваш аккаунт! Бонусы и заказы сохранены',
+              'Знайшли ваш акаунт! Бонуси та замовлення збережені',
+            ),
+            'success',
+          );
+        }
+
+        await supabase.auth.signInWithPassword({
+          email: data.loginEmail,
+          password: formData.password,
+        });
+        await initialize();
+        router.replace('/(tabs)/account');
+      }
+    } catch {
+      showToast(t('Ошибка регистрации', 'Помилка реєстрації'), 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // ─── Apple Sign-In ───
   const handleAppleLogin = async () => {
@@ -98,10 +184,7 @@ export default function RegisterScreen() {
   const handleApplePhoneSubmit = async () => {
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 10) {
-      showToast(
-        language === 'ru' ? 'Введите корректный номер' : 'Введіть коректний номер',
-        'error',
-      );
+      showToast(t('Введите корректный номер', 'Введіть коректний номер'), 'error');
       return;
     }
 
@@ -142,136 +225,16 @@ export default function RegisterScreen() {
           supabase.from('documents').update({ profile_id: appleUserId! }).eq('profile_id', oldId),
         ]);
 
-        showToast(
-          language === 'ru' ? 'Данные синхронизированы' : 'Дані синхронізовано',
-          'success',
-        );
+        showToast(t('Данные синхронизированы', 'Дані синхронізовано'), 'success');
       } else {
         await supabase.from('profiles').update({ phone: normalized }).eq('id', appleUserId!);
-        showToast(
-          language === 'ru' ? 'Добро пожаловать!' : 'Ласкаво просимо!',
-          'success',
-        );
+        showToast(t('Добро пожаловать!', 'Ласкаво просимо!'), 'success');
       }
 
       await initialize();
       router.replace('/(tabs)/account');
     } catch (err: any) {
       showToast(err.message || 'Помилка', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ─── SMS OTP ───
-  const handleSendOtp = async () => {
-    if (phone.replace(/\D/g, '').length < 12) {
-      showToast(language === 'ru' ? 'Введите корректный номер' : 'Введіть коректний номер', 'error');
-      return;
-    }
-    setIsLoading(true);
-    try {
-      await supabase.functions.invoke('send-otp', {
-        body: { phone: phone.replace(/\D/g, '') },
-      });
-      setStep('otp');
-      showToast(language === 'ru' ? 'Код отправлен' : 'Код відправлено', 'success');
-    } catch {
-      showToast(language === 'ru' ? 'Ошибка отправки' : 'Помилка відправки', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (otp.length < 4) return;
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('verify-otp', {
-        body: { phone: phone.replace(/\D/g, ''), code: otp },
-      });
-      if (error) throw error;
-
-      if (data?.existingUser && data?.hasAuth) {
-        Alert.alert(
-          language === 'ru' ? 'Аккаунт найден' : 'Акаунт знайдено',
-          language === 'ru'
-            ? 'Этот номер уже зарегистрирован. Войти с паролем?'
-            : 'Цей номер вже зареєстрований. Увійти з паролем?',
-          [
-            { text: language === 'ru' ? 'Отмена' : 'Скасувати', style: 'cancel' },
-            { text: language === 'ru' ? 'Войти' : 'Увійти', onPress: () => router.replace('/(auth)/login') },
-          ]
-        );
-        return;
-      }
-
-      setStep('register');
-    } catch {
-      showToast(language === 'ru' ? 'Неверный код' : 'Невірний код', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRegister = async () => {
-    if (!formData.firstName || !formData.lastName || formData.password.length < 6) {
-      showToast(
-        language === 'ru' ? 'Заполните все обязательные поля' : "Заповніть усі обов'язкові поля",
-        'error'
-      );
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('phone-auth', {
-        body: {
-          phone: phone.replace(/\D/g, ''),
-          action: 'register',
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          company: formData.company,
-          password: formData.password,
-        },
-      });
-      if (error) throw error;
-
-      // Scenario A: user already fully registered
-      if (data?.exists) {
-        Alert.alert(
-          language === 'ru' ? 'Аккаунт найден' : 'Акаунт знайдено',
-          language === 'ru'
-            ? 'Этот номер уже зарегистрирован. Войти с паролем?'
-            : 'Цей номер вже зареєстрований. Увійти з паролем?',
-          [
-            { text: language === 'ru' ? 'Отмена' : 'Скасувати', style: 'cancel' },
-            { text: language === 'ru' ? 'Войти' : 'Увійти', onPress: () => router.replace('/(auth)/login') },
-          ]
-        );
-        return;
-      }
-
-      // Scenario B (claimed) or C (new) — auto-login
-      if (data?.loginEmail) {
-        await supabase.auth.signInWithPassword({
-          email: data.loginEmail,
-          password: formData.password,
-        });
-        await initialize();
-
-        if (data.claimed) {
-          showToast(
-            language === 'ru'
-              ? 'Нашли ваш аккаунт! Бонусы и заказы сохранены'
-              : 'Знайшли ваш акаунт! Бонуси та замовлення збережені',
-            'success'
-          );
-        }
-
-        router.replace('/(tabs)/account');
-      }
-    } catch {
-      showToast(language === 'ru' ? 'Ошибка регистрации' : 'Помилка реєстрації', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -284,7 +247,7 @@ export default function RegisterScreen() {
           if (step === 'apple_phone') {
             supabase.auth.signOut();
             setAppleUserId(null);
-            setStep('phone');
+            setStep('form');
           } else {
             router.back();
           }
@@ -293,17 +256,22 @@ export default function RegisterScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.title}>
-          {language === 'ru' ? 'Регистрация' : 'Реєстрація'}
+          {t('Регистрация', 'Реєстрація')}
         </Text>
 
-        {step === 'phone' && (
+        {step === 'form' && (
           <>
             <PhoneInput value={phone} onChangeText={setPhone} />
+            <RegisterForm data={formData} onChange={setFormData} errors={formErrors} />
             <Button
-              title={language === 'ru' ? 'Получить код' : 'Отримати код'}
-              onPress={handleSendOtp}
+              title={t('Зарегистрироваться', 'Зареєструватися')}
+              onPress={handleRegister}
               loading={isLoading}
               fullWidth
             />
@@ -313,7 +281,7 @@ export default function RegisterScreen() {
                 <View style={styles.divider}>
                   <View style={styles.dividerLine} />
                   <Text style={styles.dividerText}>
-                    {language === 'ru' ? 'или' : 'або'}
+                    {t('или', 'або')}
                   </Text>
                   <View style={styles.dividerLine} />
                 </View>
@@ -326,6 +294,12 @@ export default function RegisterScreen() {
                 />
               </>
             )}
+
+            <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+              <Text style={styles.loginLink}>
+                {t('Уже есть аккаунт? Войти', 'Вже є акаунт? Увійти')}
+              </Text>
+            </TouchableOpacity>
           </>
         )}
 
@@ -336,19 +310,20 @@ export default function RegisterScreen() {
             </View>
 
             <Text style={styles.appleTitle}>
-              {language === 'ru' ? 'Укажите номер телефона' : 'Вкажіть номер телефону'}
+              {t('Укажите номер телефона', 'Вкажіть номер телефону')}
             </Text>
 
             <Text style={styles.appleSubtitle}>
-              {language === 'ru'
-                ? 'Если вы наш клиент — данные подтянутся автоматически'
-                : 'Якщо ви наш клієнт — дані підтягнуться автоматично'}
+              {t(
+                'Если вы наш клиент — данные подтянутся автоматически',
+                'Якщо ви наш клієнт — дані підтягнуться автоматично',
+              )}
             </Text>
 
             <PhoneInput value={phone} onChangeText={setPhone} />
 
             <Button
-              title={language === 'ru' ? 'Продолжить' : 'Продовжити'}
+              title={t('Продолжить', 'Продовжити')}
               onPress={handleApplePhoneSubmit}
               loading={isLoading}
               fullWidth
@@ -356,43 +331,7 @@ export default function RegisterScreen() {
             />
           </View>
         )}
-
-        {step === 'otp' && (
-          <>
-            <Text style={styles.subtitle}>
-              {language === 'ru' ? 'Введите код из SMS' : 'Введіть код з SMS'}
-            </Text>
-            <OtpInput value={otp} onChange={setOtp} />
-            <Button
-              title={language === 'ru' ? 'Подтвердить' : 'Підтвердити'}
-              onPress={handleVerifyOtp}
-              loading={isLoading}
-              fullWidth
-              disabled={otp.length < 4}
-            />
-          </>
-        )}
-
-        {step === 'register' && (
-          <>
-            <RegisterForm data={formData} onChange={setFormData} />
-            <Button
-              title={language === 'ru' ? 'Зарегистрироваться' : 'Зареєструватися'}
-              onPress={handleRegister}
-              loading={isLoading}
-              fullWidth
-            />
-          </>
-        )}
-
-        {step !== 'apple_phone' && (
-          <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-            <Text style={styles.loginLink}>
-              {language === 'ru' ? 'Уже есть аккаунт? Войти' : 'Вже є акаунт? Увійти'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -406,29 +345,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
-  content: {
+  scroll: {
     flex: 1,
+  },
+  content: {
     paddingHorizontal: spacing['2xl'],
+    paddingBottom: spacing['3xl'],
     gap: spacing.lg,
   },
   title: {
     fontSize: fontSizes['2xl'],
     fontFamily: 'Unbounded-Bold',
     color: colors.dark,
-    marginBottom: spacing.lg,
-  },
-  subtitle: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Inter-Regular',
-    color: colors.darkSecondary,
-    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   loginLink: {
     fontSize: fontSizes.sm,
     fontFamily: 'Inter-Medium',
     color: colors.violet,
     textAlign: 'center',
-    marginTop: spacing['2xl'],
+    marginTop: spacing.lg,
   },
   divider: {
     flexDirection: 'row',
