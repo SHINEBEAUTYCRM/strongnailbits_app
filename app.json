@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "ShineShop B2B",
-    "slug": "shineshop-b2b",
+    "name": "Strong Nail Bits",
+    "slug": "strongnailbits",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "shineshop",
+    "scheme": "strongnailbits",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -14,7 +14,7 @@
       "backgroundColor": "#FAFAF8"
     },
     "ios": {
-      "bundleIdentifier": "com.shineshop.b2b",
+      "bundleIdentifier": "com.strongnailbits.app",
       "supportsTablet": true,
       "buildNumber": "7",
       "associatedDomains": [
@@ -26,12 +26,12 @@
         "CFBundleAllowMixedLocalizations": true,
         "CFBundleDevelopmentRegion": "uk",
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryUsageDescription": "Shine Shop потребує доступ до фотогалереї для завантаження фото профілю та відгуків",
-        "NSCameraUsageDescription": "Shine Shop потребує доступ до камери для сканування штрих-кодів товарів"
+        "NSPhotoLibraryUsageDescription": "Strong Nail Bits потребує доступ до фотогалереї для завантаження фото профілю та відгуків",
+        "NSCameraUsageDescription": "Strong Nail Bits потребує доступ до камери для сканування штрих-кодів товарів"
       }
     },
     "android": {
-      "package": "com.shineshop.b2b",
+      "package": "com.strongnailbits.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FAFAF8"
@@ -96,7 +96,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "c186aa6a-d95a-4d5f-8b31-60eed7afb5e0"
+        "projectId": "f68cb9f9-735b-407b-b71f-d119328869ad"
       }
     },
     "owner": "shineshopb2b",
@@ -104,7 +104,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/c186aa6a-d95a-4d5f-8b31-60eed7afb5e0"
+      "url": "https://u.expo.dev/f68cb9f9-735b-407b-b71f-d119328869ad"
     }
   }
 }

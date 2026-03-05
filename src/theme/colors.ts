@@ -1,7 +1,7 @@
 /* ── Light palette (default) ── */
 export const lightColors = {
   // Primary
-  coral: '#D6264A',
+  coral: '#C8102E',
   coral2: '#B8203F',
   violet: '#8B5CF6',
 
@@ -37,7 +37,7 @@ export const lightColors = {
 export const darkColors: typeof lightColors = {
   // Primary — brighter for dark backgrounds
   coral: '#FF4D6D',
-  coral2: '#D6264A',
+  coral2: '#C8102E',
   violet: '#A78BFA',
 
   // Text — inverted
