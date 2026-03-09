@@ -1,5 +1,5 @@
 -- ============================================================
--- ShineShop B2B Mobile App — Security Hardening Migration
+-- Strong Nail Bits Mobile App — Security Hardening Migration
 -- Run AFTER 001_mobile_tables.sql
 -- "Забиваем гвозди" — максимальная безопасность
 --

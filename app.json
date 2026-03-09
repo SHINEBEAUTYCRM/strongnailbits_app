@@ -17,10 +17,7 @@
       "bundleIdentifier": "com.strongnailbits.app",
       "supportsTablet": true,
       "buildNumber": "7",
-      "associatedDomains": [
-        "applinks:shineshopb2b.com",
-        "applinks:shineshopb2b.com"
-      ],
+      "associatedDomains": [],
       "usesAppleSignIn": true,
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
@@ -36,48 +33,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FAFAF8"
       },
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "shineshopb2b.com",
-              "pathPrefix": "/product"
-            },
-            {
-              "scheme": "https",
-              "host": "shineshopb2b.com",
-              "pathPrefix": "/catalog"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "shineshopb2b.com",
-              "pathPrefix": "/product"
-            },
-            {
-              "scheme": "https",
-              "host": "shineshopb2b.com",
-              "pathPrefix": "/catalog"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        }
-      ]
+      "intentFilters": []
     },
     "plugins": [
       "expo-router",
