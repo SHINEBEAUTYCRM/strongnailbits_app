@@ -9,7 +9,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const ALLOWED_ORIGINS = ['https://shineshopb2b.com', 'https://www.shineshopb2b.com'];
+const SITE_URL = Deno.env.get('SITE_URL') || '';
+const ALLOWED_ORIGINS = [SITE_URL, SITE_URL.replace('https://', 'https://www.')].filter(Boolean);
 
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get('origin') ?? '';
@@ -126,7 +127,7 @@ serve(async (req) => {
           return new Response(JSON.stringify({ error: 'Пароль занадто довгий' }), { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } });
         }
 
-        const loginEmail = `${normalized}@phone.shineshop.local`;
+        const loginEmail = `${normalized}@phone.strongnailbits.local`;
 
         // Search profile by ALL phone format variants
         const { data: existingProfile } = await supabase
@@ -227,7 +228,7 @@ serve(async (req) => {
           );
         }
 
-        // Fallback for old mobile users with @shineshopb2b.com in auth.users
+        // Fallback for users with legacy email format in auth.users
         const { data: authUser } = await supabase.auth.admin.getUserById(profile.id);
         return new Response(
           JSON.stringify({ loginEmail: authUser?.user?.email ?? null }),

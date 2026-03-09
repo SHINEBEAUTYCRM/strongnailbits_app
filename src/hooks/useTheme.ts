@@ -11,7 +11,7 @@ interface ThemeStore {
   _hydrated: boolean;
 }
 
-const STORAGE_KEY = 'shineshop_theme';
+const STORAGE_KEY = 'strongnailbits_theme';
 
 export const useThemeStore = create<ThemeStore>((set) => ({
   mode: 'auto',

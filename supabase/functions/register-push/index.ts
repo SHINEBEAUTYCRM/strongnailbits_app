@@ -4,7 +4,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const ALLOWED_ORIGINS = ['https://shineshopb2b.com', 'https://www.shineshopb2b.com'];
+const SITE_URL = Deno.env.get('SITE_URL') || '';
+const ALLOWED_ORIGINS = [SITE_URL, SITE_URL.replace('https://', 'https://www.')].filter(Boolean);
 
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get('origin') ?? '';

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, View, StyleSheet, TouchableOpacity, Text, RefreshControl } from 'react-native';
+import { ScrollView, View, StyleSheet, TouchableOpacity, Text, RefreshControl, Image } from 'react-native';
 import { useScrollToTop } from '@react-navigation/native';
 import Animated, {
   useSharedValue,
@@ -143,7 +143,7 @@ export default function HomeScreen() {
 
   async function loadData() {
     try {
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://shineshopb2b.com';
+      const API_URL = process.env.EXPO_PUBLIC_API_URL || '';
       const res = await fetch(`${API_URL}/api/app/home`, {
         headers: { 'Accept': 'application/json' },
       });
@@ -222,10 +222,11 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-            <Text style={styles.logoShine}>SHINE</Text>
-            <Text style={styles.logoShop}>SHOP</Text>
-          </View>
+          <Image
+            source={require('@/assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
         </View>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
           <SkeletonBanner />
@@ -259,9 +260,12 @@ export default function HomeScreen() {
 
       {/* Glass Header */}
       <Animated.View style={[styles.header, styles.headerShadow, headerAnimatedStyle]}>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-          <Text style={styles.logoShine}>SHINE</Text>
-          <Text style={styles.logoShop}>SHOP</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Image
+            source={require('@/assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           {showSeasonal && <Text style={styles.seasonalFlower}>🌸</Text>}
         </View>
         <View style={styles.headerActions}>
@@ -364,16 +368,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  logoShine: {
-    fontSize: 20,
-    fontFamily: 'Unbounded-Black',
-    color: '#1a1a1a',
-  },
-  logoShop: {
-    fontSize: 20,
-    fontFamily: 'Unbounded-Black',
-    color: '#D6264A',
-    marginLeft: 6,
+  logo: {
+    height: 36,
+    width: 160,
   },
   seasonalFlower: {
     fontSize: 16,

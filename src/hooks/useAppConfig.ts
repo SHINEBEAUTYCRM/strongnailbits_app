@@ -23,8 +23,8 @@ interface AppConfig {
 const DEFAULT_CONFIG: AppConfig = {
   freeShippingThreshold: 2500,
   minOrderAmount: 300,
-  phone: '+380671234567',
-  email: 'info@shineshopb2b.com',
+  phone: '',
+  email: '',
   instagram: '',
   telegram: '',
   workingHours: {},
@@ -72,8 +72,8 @@ export function useAppConfig() {
         const parsed: AppConfig = {
           freeShippingThreshold: (map.free_shipping_threshold as number) ?? 2500,
           minOrderAmount: (map.min_order_amount as number) ?? 300,
-          phone: (map.phone as string) ?? '+380671234567',
-          email: (map.email as string) ?? 'info@shineshopb2b.com',
+          phone: (map.phone as string) ?? '',
+          email: (map.email as string) ?? '',
           instagram: (map.instagram as string) ?? '',
           telegram: (map.telegram_channel as string) ?? '',
           workingHours: (map.working_hours as Record<string, string>) ?? {},

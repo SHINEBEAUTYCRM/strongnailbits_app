@@ -1,4 +1,4 @@
-const NP_BASE = 'https://shineshopb2b.com/api/nova-poshta';
+const NP_BASE = `${process.env.EXPO_PUBLIC_API_URL || ''}/api/nova-poshta`;
 
 export interface NPCity {
   ref: string;
